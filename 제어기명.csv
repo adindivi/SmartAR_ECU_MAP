@@ -1,0 +1,44 @@
+﻿번호,제어기 영문명 / 코드 (System Code),제어기 국문명 / 설명 (Description),영문 약어 (Abbreviation)
+1,ADAS_PRK,운전자보조주차시스템,ADAS
+2,AIRCON,에어컨,AIRCON
+3,Battery Management System,배터리 매니지먼트 시스템,BMS
+4,Body Control Module,BCM,BCM
+5,Identity Authentication Unit,IAU,IAU
+6,Smart Key,SMK,SMK
+7,Tire Pressure Monitoring System,TPMS,TPMS
+8,Brake,제동제어,BRK
+9,Central Communication Unit,통신 통합 제어 유닛,CCU
+10,Cluster Module,클러스터모듈,CLU
+11,Connected Car Navigation Cockpit,차량 커넥티드 내비게이션 유닛,CCNC
+12,Corner Radar,측방레이더,CRR
+13,Data Connectivity Unit,데이터 커넥티비티 유닛,DCU
+14,Door Area Unit,운전석도어모듈,DAU
+15,Door Handle Sensor Module-Front L,도어 핸들 센서 모듈,DHSM
+16,Door Handle Sensor Module-Front R,도어 핸들 센서 모듈,DHSM
+17,E-Shifter,전자식변속레버,E-Shifter
+18,EBB(ABS/ESP),제동제어,EBB(ABS/ESP)
+19,Electronic Toll Collection System,전자통행료 지불 시스템,ETCS
+20,Front Radar,전방레이더,FR_Radar
+21,Front View Camera,전방카메라,Camera
+22,Hands on Detection,손 감지 기능,HOD
+23,Integrated Charging Control Unit,통합충전제어장치,ICCU
+24,Integrated Safety Control Module,통합 안전 제어 모듈,ISCM
+25,Local Cooler Controler,로컬 쿨러 컨트롤러,Cooler
+26,Motor Control Unit,모터제어유닛-앞,MCU
+27,Occupant Classification System,승객구분시스템,OCS
+28,PBV Interface Module,PBV 인터페이스 모듈,PIM
+29,Power Sliding Door,파워슬라이딩도어,PSD
+30,Power Tail Gate,파워테일게이트,PTG
+31,Power-net Domain Control,파워넷 도메인 컨트롤,PDC
+32,Powerline Communication Module,전력선 통신 모듈,PLCM
+33,SBW Control Unit (SCU),전자식변속제어,SCU
+34,Scalability Assist Controller,확장성 보조 컨트롤러,SAC
+35,Seat heater Ventilation Unit-Front,시트열선통풍제어유닛-앞,SHVCU-F
+36,Seat heater Ventilation Unit-Rear,시트열선통풍제어유닛-뒤,SHVCU-R
+37,Steering,파워스티어링,STR
+38,Steering Wheel Remote Control,스티어링휠리모트컨트롤,SWRC
+39,Ultra Wide Band Bluetooth LE,초광대역/저전력 블루투스 모듈,UWB-BLE
+40,Vehicle Charging Management System,차량 충전 관리 제어기,VCMS
+41,Vehicle Platform Controller,차량 플랫폼 컨트롤러,VPC
+42,Virtual Engine Sound System,가상엔진사운드,VESS
+43,Wireless Power Charger,무선충전시스템,WPC

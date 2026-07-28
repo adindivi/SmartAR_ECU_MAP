@@ -1,0 +1,1499 @@
+<!DOCTYPE html>
+<html lang="ko" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart AR ECU MAP</title>
+    
+    <!-- [외부 라이브러리 로드] -->
+    <!-- Tailwind CSS: 유틸리티 클래스 기반의 빠른 스타일링을 위해 사용 -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome: 마이크로칩, 자물쇠, 돋보기 등의 아이콘 렌더링을 위해 사용 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts: Inter (기본 텍스트용), JetBrains Mono (코드 및 숫자 표시용) -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+    
+    <!-- [Tailwind 환경 설정] 다크 모드 기반의 고유 색상 및 폰트 패밀리 지정 -->
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        arBg: '#080C17',     // 앱 전체 배경 (다크 네이비)
+                        arPanel: '#0F1524',  // 좌/우측 사이드바 패널 배경
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace']
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <!-- [커스텀 CSS 스타일링] AR 감성을 내기 위한 특수 효과 및 애니메이션 정의 -->
+    <style>
+        /* 기본 바디 설정: 드래그 선택 방지 및 배경색 지정 */
+        body { background-color: #080C17; color: #e2e8f0; overflow-x: hidden; user-select: none; }
+
+        /* AR 스캔라인 효과: 화면 전체에 옅은 가로/세로 줄무늬를 오버레이하여 HUD 느낌 연출 */
+        .scanlines {
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), 
+                        linear-gradient(90deg, rgba(255, 0, 0, 0.03), rgba(0, 255, 0, 0.01), rgba(0, 0, 255, 0.03));
+            background-size: 100% 3px, 6px 100%;
+            pointer-events: none; /* 마우스 클릭이 통과되도록 설정 */
+        }
+
+        /* 캔버스 그리드: 메인 도면 배경에 모눈종이 형태의 청록색 그리드 출력 */
+        .ar-grid {
+            background-image: 
+                linear-gradient(to right, rgba(6, 182, 212, 0.05) 1px, transparent 1px),
+                linear-gradient(to bottom, rgba(6, 182, 212, 0.05) 1px, transparent 1px);
+            background-size: 30px 30px;
+        }
+
+        /* SVG 통신 점선 흐름 애니메이션: 점선이 이동하는 것처럼 보이게 dashoffset 조절 */
+        @keyframes dashFlow { to { stroke-dashoffset: -40; } }
+        
+        /* 기본 속도로 흐르는 선 (평시) */
+        .flow-line { stroke-dasharray: 6, 6; animation: dashFlow 1s linear infinite; }
+        /* 빠른 속도로 흐르는 선 (제어기 선택 시 강조용) */
+        .flow-line-fast { stroke-dasharray: 6, 6; animation: dashFlow 0.4s linear infinite; }
+
+        /* 노드 오류 알림 펄스 애니메이션: Fault 상태인 제어기 주변에 붉은색 파동 연출 */
+        @keyframes nodePulse {
+            0% { transform: translate(-50%, -50%) scale(1); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
+            70% { transform: translate(-50%, -50%) scale(1.1); box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); }
+            100% { transform: translate(-50%, -50%) scale(1); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+        }
+        .pulse-active { animation: nodePulse 1.5s infinite; }
+
+        /* 2.5D 원근감(Depth) 효과: 뷰포트에 따라 뒤쪽에 있는 제어기를 흐리게(blur) 및 작게 축소 */
+        .depth-blur { filter: blur(0.8px) brightness(0.7); transform: translate(-50%, -50%) scale(0.85); z-index: 10; }
+
+        /* 스크롤바 디자인: 웹킷 브라우저 스크롤바를 얇은 청록색으로 커스텀 */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: rgba(15, 23, 42, 0.6); }
+        ::-webkit-scrollbar-thumb { background: rgba(6, 182, 212, 0.3); border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(6, 182, 212, 0.7); }
+
+        /* 모던 모달 애니메이션 */
+        .modal-animate-enter {
+            animation: modalFadeInScale 0.25s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+        }
+        @keyframes modalFadeInScale {
+            from {
+                opacity: 0;
+                transform: scale(0.96) translateY(8px);
+            }
+            to {
+                opacity: 1;
+                transform: scale(1) translateY(0);
+            }
+        }
+    </style>
+</head>
+<body class="h-screen w-screen flex flex-col font-sans antialiased bg-arBg text-slate-200">
+
+    <!-- ========================================== -->
+    <!-- [상단 헤더 바] 네비게이션 및 기능 컨트롤 영역 -->
+    <!-- ========================================== -->
+    <header class="h-16 border-b border-cyan-900/40 bg-arPanel/90 px-4 flex items-center justify-between z-30 shrink-0 backdrop-blur-md">
+        <!-- 로고 및 타이틀 -->
+        <div class="flex items-center space-x-3">
+            <i class="fa-solid fa-microchip text-cyan-400 text-xl"></i>
+            <div>
+                <h1 class="text-base md:text-lg font-bold text-white tracking-wide">Smart AR ECU MAP</h1>
+                <p id="nodeCountSubtitle" class="text-[10px] text-slate-400 font-mono hidden sm:block">43 Node Connections Active | Signal Flow Matrix</p>
+            </div>
+        </div>
+
+        <!-- 우측 컨트롤러 (뷰 전환, 세팅 토글, 초기화 버튼) -->
+        <div class="flex items-center space-x-3">
+            <!-- 시점(View) 전환 버튼들 (탑뷰, 측면뷰, 전방뷰) -->
+            <div class="bg-slate-900/80 p-1 rounded-lg border border-slate-700 flex text-xs">
+                <button id="viewTopBtn" onclick="switchView('top')" class="px-3 py-1 rounded bg-cyan-950 text-cyan-400 border border-cyan-500/50 shadow font-semibold">TOP (탑뷰)</button>
+                <button id="viewSideBtn" onclick="switchView('side')" class="px-3 py-1 rounded text-slate-400 hover:text-white transition">SIDE (측면)</button>
+                <button id="viewFrontBtn" onclick="switchView('front')" class="px-3 py-1 rounded text-slate-400 hover:text-white transition">FRONT (전방)</button>
+            </div>
+
+            <!-- 제어기 추가 버튼 -->
+            <button onclick="openAddEcuModal()" class="px-3 py-1.5 rounded-lg border border-cyan-500/40 bg-cyan-500/10 text-cyan-400 hover:bg-cyan-500/20 text-xs font-semibold flex items-center space-x-1.5 transition-all">
+                <i class="fa-solid fa-plus"></i>
+                <span>제어기 추가</span>
+            </button>
+
+            <!-- 위치 세팅(Edit) 모드 잠금/해제 토글 버튼 -->
+            <button onclick="requestEditMode()" class="px-3 py-1.5 rounded-lg border border-amber-500/40 bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 text-xs font-semibold flex items-center space-x-1.5 transition-all">
+                <i class="fa-solid fa-lock" id="editLockIcon"></i>
+                <span id="editBtnText">위치 세팅 (잠금)</span>
+            </button>
+            
+            <!-- 공장 초기화 버튼 (좌표 리셋) -->
+            <button onclick="resetPositions()" title="공장 초기화" class="px-2 py-1.5 rounded-lg bg-slate-800 hover:bg-rose-900/50 text-slate-400 hover:text-rose-400 text-xs border border-slate-700 transition">
+                <i class="fa-solid fa-rotate-left"></i>
+            </button>
+        </div>
+    </header>
+
+    <!-- ========================================== -->
+    <!-- [메인 워크스페이스] 좌측/중앙/우측 3분할 레이아웃 -->
+    <!-- ========================================== -->
+    <div class="flex-1 flex overflow-hidden relative">
+        <div class="scanlines absolute inset-0 z-20 pointer-events-none"></div> <!-- AR 스캔라인 오버레이 효과 -->
+
+        <!-- [좌측 사이드바] 제어기 목록 검색 및 도메인 필터링 패널 -->
+        <aside class="w-[300px] border-r border-cyan-900/30 bg-arPanel flex flex-col z-20 shrink-0">
+            
+            <!-- 1. 제어기 ID/명칭/DTC 검색창 -->
+            <div class="p-3 border-b border-slate-800 bg-slate-900/30">
+                <div class="relative">
+                    <i class="fa-solid fa-magnifying-glass absolute left-3 top-2.5 text-xs text-slate-500"></i>
+                    <input type="text" id="searchInput" oninput="handleSearch()" placeholder="제어기 ID/명, DTC 검색..." 
+                           class="w-full bg-slate-900 border border-slate-700/80 rounded pl-8 pr-3 py-1.5 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-cyan-500 transition-colors">
+                </div>
+            </div>
+
+            <!-- 2. 도메인(기능군) 카테고리 필터 버튼 그룹 -->
+            <div class="p-3 border-b border-slate-800">
+                <div class="text-[10px] text-slate-500 font-bold mb-2">DOMAIN FILTER (도메인 필터링)</div>
+                <div class="grid grid-cols-3 gap-1 text-[9px] font-mono">
+                    <button onclick="filterByDomain('ALL')" id="filter-ALL" class="py-1 rounded bg-slate-700 text-white font-bold border border-slate-500 transition">ALL</button>
+                    <button onclick="filterByDomain('POWERTRAIN')" id="filter-POWERTRAIN" class="py-1 rounded bg-slate-900 text-slate-400 border border-slate-800 hover:border-cyan-500 transition">PT (파워트레인)</button>
+                    <button onclick="filterByDomain('CHASSIS')" id="filter-CHASSIS" class="py-1 rounded bg-slate-900 text-slate-400 border border-slate-800 hover:border-emerald-500 transition">CHASSIS (섀시)</button>
+                    <button onclick="filterByDomain('ADAS')" id="filter-ADAS" class="py-1 rounded bg-slate-900 text-slate-400 border border-slate-800 hover:border-amber-500 transition">ADAS</button>
+                    <button onclick="filterByDomain('BODY')" id="filter-BODY" class="py-1 rounded bg-slate-900 text-slate-400 border border-slate-800 hover:border-indigo-500 transition">BODY (바디)</button>
+                    <button onclick="filterByDomain('INFOTAINMENT')" id="filter-INFOTAINMENT" class="py-1 rounded bg-slate-900 text-slate-400 border border-slate-800 hover:border-pink-500 transition">INFO (인포)</button>
+                    <button onclick="filterByDomain('NETWORK')" id="filter-NETWORK" class="py-1 rounded bg-slate-900 text-slate-400 border border-slate-800 hover:border-violet-500 transition">NET (네트)</button>
+                </div>
+            </div>
+
+            <!-- 3. 필터링된 제어기(ECU) 리스트가 동적으로 렌더링되는 영역 -->
+            <div class="flex-1 overflow-y-auto p-2 space-y-1" id="ecuListContainer">
+                <!-- Javascript(renderEcuList)에 의해 목록이 삽입됨 -->
+            </div>
+        </aside>
+
+        <!-- [중앙 캔버스] 차량 배경 SVG, 통신망 SVG, 제어기 노드 배치 영역 -->
+        <main class="flex-1 relative bg-[#060913] flex flex-col items-center justify-center ar-grid p-4 overflow-hidden">
+            
+            <!-- 차량 도면(SVG) 래퍼 컨테이너: 이 영역의 폭/높이를 기준으로 % 좌표가 계산됨 -->
+            <div id="vehicleSvgWrapper" class="relative w-full max-w-4xl h-full max-h-[85vh] flex items-center justify-center transition-all duration-300">
+                
+                <!-- 차량 도면 SVG 1: 탑뷰 (Top View) -->
+                <svg id="svgTopView" class="w-full h-full text-cyan-500/15 transition-opacity" viewBox="0 0 800 450" preserveAspectRatio="xMidYMid meet" fill="none" stroke="currentColor">
+                    <!-- PBV Outer Boxy Body -->
+                    <rect x="120" y="80" width="560" height="290" rx="30" stroke-width="1.5" />
+                    <path stroke-width="1" d="M 150 80 L 150 370 M 650 80 L 650 370" stroke-dasharray="4,4" />
+                    
+                    <!-- Skateboard Chassis Battery Pack (Center) -->
+                    <rect x="240" y="110" width="320" height="230" rx="10" fill="rgba(6,182,212,0.02)" stroke-width="1.2" stroke-dasharray="2,2" />
+                    <path d="M 320 110 L 320 340 M 400 110 L 400 340 M 480 110 L 480 340" stroke-width="0.8" stroke-dasharray="4,4" />
+                    
+                    <!-- Wheels at 4 corners -->
+                    <rect x="170" y="55" width="80" height="35" rx="6" fill="rgba(6,182,212,0.05)" stroke-width="1.5"/>
+                    <rect x="170" y="360" width="80" height="35" rx="6" fill="rgba(6,182,212,0.05)" stroke-width="1.5"/>
+                    <rect x="550" y="55" width="80" height="35" rx="6" fill="rgba(6,182,212,0.05)" stroke-width="1.5"/>
+                    <rect x="550" y="360" width="80" height="35" rx="6" fill="rgba(6,182,212,0.05)" stroke-width="1.5"/>
+                    
+                    <!-- Front & Rear LED Bars -->
+                    <path d="M 120 150 C 120 225, 120 225, 120 300" stroke-width="3" stroke="#06b6d4" />
+                    <path d="M 680 160 L 680 290" stroke-width="3" stroke="#f43f5e" />
+                </svg>
+
+                <!-- 차량 도면 SVG 2: 측면뷰 (Side View) -->
+                <svg id="svgSideView" class="hidden w-full h-full text-cyan-500/15 transition-opacity" viewBox="0 0 800 450" preserveAspectRatio="xMidYMid meet" fill="none" stroke="currentColor">
+                    <!-- Boxy Shuttle Body -->
+                    <path stroke-width="1.5" d="M 100 290 L 120 200 C 130 150, 160 100, 220 100 L 660 100 C 680 100, 690 110, 690 130 L 690 290 Z" />
+                    
+                    <!-- Large Windows -->
+                    <path stroke-width="1" fill="rgba(6,182,212,0.02)" d="M 220 115 L 670 115 L 670 200 L 220 200 Z" />
+                    <path stroke-width="1" fill="rgba(6,182,212,0.02)" d="M 135 200 C 145 160, 175 125, 205 125 L 205 200 Z" />
+                    
+                    <!-- Sliding Door Outline -->
+                    <rect x="250" y="115" width="160" height="175" stroke-width="1" stroke-dasharray="3,3" />
+                    <rect x="430" y="115" width="160" height="175" stroke-width="1" stroke-dasharray="3,3" />
+                    
+                    <!-- Wheels -->
+                    <circle cx="210" cy="290" r="45" stroke-width="1.5" fill="rgba(6,182,212,0.03)"/>
+                    <circle cx="210" cy="290" r="25" stroke-width="1" stroke-dasharray="4,4"/>
+                    <circle cx="580" cy="290" r="45" stroke-width="1.5" fill="rgba(6,182,212,0.03)"/>
+                    <circle cx="580" cy="290" r="25" stroke-width="1" stroke-dasharray="4,4"/>
+                </svg>
+
+                <!-- 차량 도면 SVG 3: 전방뷰 (Front View) -->
+                <svg id="svgFrontView" class="hidden w-full h-full text-cyan-500/15 transition-opacity" viewBox="0 0 800 450" preserveAspectRatio="xMidYMid meet" fill="none" stroke="currentColor">
+                    <!-- Tall Boxy Body -->
+                    <path stroke-width="1.5" d="M 180 340 L 180 150 C 180 120, 220 100, 260 100 L 540 100 C 580 100, 620 120, 620 150 L 620 340 Z" />
+                    
+                    <!-- Windshield -->
+                    <path stroke-width="1" fill="rgba(6,182,212,0.02)" d="M 195 120 L 605 120 L 605 230 L 195 230 Z" />
+                    
+                    <!-- Futuristic Horizontal Lightbar -->
+                    <path d="M 180 260 L 620 260" stroke-width="3" stroke="#06b6d4" />
+                    
+                    <!-- Bumper & Grid details -->
+                    <rect x="250" y="290" width="300" height="40" rx="5" fill="rgba(6,182,212,0.04)" stroke-width="1" />
+                    <path d="M 280 290 L 280 330 M 340 290 L 340 330 M 400 290 L 400 330 M 460 290 L 460 330 M 520 290 L 520 330" stroke-width="0.8" stroke-dasharray="2,2" />
+                    
+                    <!-- Wheels showing at bottom -->
+                    <rect x="145" y="270" width="35" height="70" rx="5" fill="rgba(6,182,212,0.05)" stroke-width="1.2"/>
+                    <rect x="620" y="270" width="35" height="70" rx="5" fill="rgba(6,182,212,0.05)" stroke-width="1.2"/>
+                </svg>
+
+                <!-- 캔버스 위 통신 연결선(SVG path/line)을 그리기 위한 레이어 -->
+                <svg id="svgNetworkConnections" class="absolute top-0 left-0 w-full h-full pointer-events-none z-10"></svg>
+
+                <!-- 캔버스 위 제어기 노드(HTML div)가 실제로 배치되는 컨테이너 -->
+                <div id="ecuPinsContainer" class="absolute top-0 left-0 w-full h-full z-20 pointer-events-none">
+                    <!-- Javascript(renderEcuPins)에 의해 노드(div) 요소가 삽입됨 -->
+                </div>
+
+            </div>
+        </main>
+
+        <!-- [우측 사이드바] 제어기를 클릭했을 때 나오는 상세 모니터링 대시보드 -->
+        <aside class="w-[340px] border-l border-cyan-900/40 bg-arPanel flex flex-col z-20 shrink-0">
+            <!-- 헤더 타이틀 -->
+            <div class="px-5 py-4 border-b border-slate-800 flex items-center justify-between">
+                <div class="flex items-center space-x-2">
+                    <i class="fa-solid fa-microchip text-cyan-400 text-sm"></i>
+                    <h2 class="text-sm font-bold text-slate-100">제어기 상세 모니터링</h2>
+                </div>
+                <!-- 소속 도메인 뱃지 -->
+                <span id="detailDomainBadge" class="px-2.5 py-0.5 rounded text-[10px] font-mono border bg-opacity-10 uppercase tracking-wider hidden">
+                    DOMAIN
+                </span>
+            </div>
+
+            <!-- [제어기 선택 시 표시되는 디테일 내용] 첨부 이미지 UI 스타일 적용 -->
+            <div id="detailPanelContent" class="p-5 flex-1 overflow-y-auto hidden">
+                
+                <!-- 1. 제어기 메인 프로필 박스 -->
+                <div class="rounded-xl border border-cyan-900/60 bg-[#0B1221] p-4 mb-6">
+                    <div class="flex items-center justify-between mb-2">
+                        <span id="detailEcuId" class="text-[26px] font-bold font-mono text-cyan-400">MDPS</span>
+                        <span id="detailStatusBadge" class="px-3 py-1 rounded text-xs font-bold text-emerald-400 border border-emerald-500/80 bg-emerald-950/30">
+                            NORMAL
+                        </span>
+                    </div>
+                    <div id="detailEcuName" class="text-sm font-semibold text-slate-200 mb-1">전동식 파워 스티어링</div>
+                    <div id="detailEcuDesc" class="text-[11px] text-slate-400 leading-relaxed">엔진 분사, 점화 및 연료 효율 통제 제어기</div>
+                    
+                    <!-- 수정 / 삭제 액션 버튼 영역 -->
+                    <div class="mt-4 pt-3 border-t border-cyan-950/60 flex justify-end space-x-2">
+                        <button onclick="openEditEcuModal()" class="px-2.5 py-1.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-[11px] font-semibold flex items-center space-x-1.5 transition">
+                            <i class="fa-solid fa-pen-to-square text-cyan-400"></i>
+                            <span>수정</span>
+                        </button>
+                        <button onclick="deleteSelectedEcu()" class="px-2.5 py-1.5 rounded bg-slate-800 hover:bg-rose-950/40 text-slate-355 hover:text-rose-400 text-[11px] font-semibold flex items-center space-x-1.5 border border-transparent hover:border-rose-900/30 transition">
+                            <i class="fa-solid fa-trash-can text-rose-500"></i>
+                            <span>삭제</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 2. 제어기 상세 정보 및 실물 사진 -->
+                <div class="mb-6">
+                    <h3 class="text-[13px] font-semibold text-slate-400 mb-3">제어기 상세</h3>
+                    <div class="space-y-4">
+                        <!-- 작동 전압 카드 -->
+                        <div class="bg-slate-900/60 rounded-xl p-4 border border-slate-700/50 flex items-center justify-between">
+                            <div>
+                                <div class="text-[11px] text-slate-500 mb-0.5">작동 전압 (Operating Voltage)</div>
+                                <div id="detailVoltage" class="text-emerald-400 font-mono text-2xl font-bold tracking-tight">14.1 V</div>
+                            </div>
+                            <div class="w-10 h-10 rounded-lg bg-emerald-950/30 border border-emerald-500/30 flex items-center justify-center">
+                                <i class="fa-solid fa-bolt text-emerald-400"></i>
+                            </div>
+                        </div>
+                        
+                        <!-- 제어기 실물 사진 -->
+                        <div class="bg-slate-900/60 rounded-xl p-3 border border-slate-700/50">
+                            <div class="text-[11px] text-slate-500 mb-2">제어기 실물 사진 (Physical Controller)</div>
+                            <div class="relative rounded-lg overflow-hidden border border-cyan-500/20 bg-black/40 aspect-[4/3] flex items-center justify-center group">
+                                <!-- AR Overlay Grid & Scan lines on image -->
+                                <div class="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_50%,rgba(0,0,0,0.6)_100%)] z-10 pointer-events-none"></div>
+                                <div class="absolute top-2 left-2 w-3 h-3 border-t-2 border-l-2 border-cyan-400 opacity-60"></div>
+                                <div class="absolute top-2 right-2 w-3 h-3 border-t-2 border-r-2 border-cyan-400 opacity-60"></div>
+                                <div class="absolute bottom-2 left-2 w-3 h-3 border-b-2 border-l-2 border-cyan-400 opacity-60"></div>
+                                <div class="absolute bottom-2 right-2 w-3 h-3 border-b-2 border-r-2 border-cyan-400 opacity-60"></div>
+                                
+                                <img src="./ecu_module.jpg" alt="ECU Photo" class="w-full h-full object-cover opacity-85 group-hover:scale-105 transition-transform duration-500">
+                                
+                                <!-- HUD Scan text overlay -->
+                                <div class="absolute bottom-2 left-3 z-10 font-mono text-[9px] text-cyan-400/80 bg-slate-950/80 px-1.5 py-0.5 rounded border border-cyan-500/20">
+                                    <span class="inline-block w-1.5 h-1.5 rounded-full bg-cyan-400 animate-ping mr-1"></span>SCAN ACTIVE
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 3. 연결된 제어기 네트워크 버튼 목록 -->
+                <div>
+                    <h3 class="text-[13px] font-semibold text-slate-400 mb-3">연결된 제어기 네트워크</h3>
+                    <div id="detailConnectedList" class="flex flex-wrap gap-2">
+                        <!-- 동적으로 버튼 생성 -->
+                    </div>
+                </div>
+            </div>
+            
+            <!-- [제어기 미선택 시 표시되는 안내 화면] -->
+            <div id="detailPanelEmpty" class="flex-1 flex flex-col items-center justify-center text-slate-500 text-sm">
+                <i class="fa-solid fa-crosshairs text-3xl mb-3 opacity-50"></i>
+                <p>노드를 클릭하여 상세 확인</p>
+            </div>
+        </aside>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- [비밀번호 모달창] 위치 세팅 모드를 켤 때 묻는 팝업 -->
+    <!-- ========================================== -->
+    <div id="passwordModal" class="fixed inset-0 bg-black/60 z-50 flex items-center justify-center hidden backdrop-blur-md transition-all duration-300">
+        <div class="bg-slate-950/80 border border-slate-750/80 p-6 rounded-2xl w-80 text-center shadow-[0_0_40px_rgba(0,0,0,0.6),0_0_50px_rgba(6,182,212,0.1)] modal-animate-enter backdrop-blur-xl">
+            <div class="w-12 h-12 bg-cyan-500/10 border border-cyan-500/30 rounded-full flex items-center justify-center mx-auto mb-4">
+                <i class="fa-solid fa-lock text-cyan-400 text-lg"></i>
+            </div>
+            <h3 class="text-base font-bold text-white mb-1.5 tracking-wide">위치 세팅 모드 해제</h3>
+            <p class="text-[11px] text-slate-400 mb-4">관리자 비밀번호(<span class="font-mono text-cyan-400">0000</span>)를 입력하세요.</p>
+            <input type="password" id="pwInput" class="w-full bg-slate-900/60 border border-slate-700/80 text-white p-2.5 rounded-xl mb-4 text-center font-mono text-2xl focus:outline-none focus:border-cyan-500/80 focus:ring-1 focus:ring-cyan-500/30 transition-all placeholder-slate-650" maxlength="4" placeholder="••••">
+            <div class="flex space-x-2 text-xs font-semibold">
+                <button onclick="closePasswordModal()" class="flex-1 py-2.5 rounded-xl bg-slate-800/80 border border-slate-700/60 text-slate-350 hover:bg-slate-700 hover:text-white transition">취소</button>
+                <button onclick="verifyPassword()" class="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white shadow-[0_0_15px_rgba(6,182,212,0.2)] transition">확인</button>
+            </div>
+            <p id="pwError" class="text-rose-400 text-[11px] mt-2.5 hidden"><i class="fa-solid fa-circle-exclamation mr-1"></i>비밀번호가 올바르지 않습니다.</p>
+        </div>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- [제어기 추가 모달창] 제어기 정보를 입력받는 팝업 -->
+    <!-- ========================================== -->
+    <div id="addEcuModal" class="fixed inset-0 bg-black/60 z-50 flex items-center justify-center hidden backdrop-blur-md transition-all duration-300">
+        <div class="bg-slate-950/80 border border-slate-750/80 p-6 rounded-2xl w-[420px] shadow-[0_0_40px_rgba(0,0,0,0.6),0_0_50px_rgba(6,182,212,0.1)] modal-animate-enter backdrop-blur-xl relative">
+            <h3 class="text-base font-bold text-white mb-4 flex items-center space-x-2 tracking-wide border-b border-slate-800/80 pb-2.5">
+                <i class="fa-solid fa-plus text-cyan-400"></i>
+                <span>새 제어기 추가</span>
+            </h3>
+            
+            <div class="space-y-4 text-xs">
+                <!-- 제어기 ID -->
+                <div>
+                    <label class="text-slate-400 block mb-1.5 font-semibold">제어기 ID (영문 약어, 예: MCU2)</label>
+                    <input type="text" id="newEcuId" placeholder="예: MCU2" class="w-full bg-slate-900/60 border border-slate-700/80 rounded-xl p-2.5 text-white placeholder-slate-600 focus:outline-none focus:border-cyan-500/80 focus:ring-1 focus:ring-cyan-500/30 transition-all uppercase font-mono">
+                </div>
+                
+                <!-- 제어기 명칭 -->
+                <div>
+                    <label class="text-slate-400 block mb-1.5 font-semibold">제어기 명칭 (국문 풀네임)</label>
+                    <input type="text" id="newEcuName" placeholder="예: 후륜 모터제어유닛" class="w-full bg-slate-900/60 border border-slate-700/80 rounded-xl p-2.5 text-white placeholder-slate-600 focus:outline-none focus:border-cyan-500/80 focus:ring-1 focus:ring-cyan-500/30 transition-all">
+                </div>
+                
+                <!-- 제어기 설명 -->
+                <div>
+                    <label class="text-slate-400 block mb-1.5 font-semibold">제어기 설명 (영문명 / 코드, 예: Motor Control Unit 2)</label>
+                    <input type="text" id="newEcuDesc" placeholder="예: Motor Control Unit 2" class="w-full bg-slate-900/60 border border-slate-700/80 rounded-xl p-2.5 text-white placeholder-slate-600 focus:outline-none focus:border-cyan-500/80 focus:ring-1 focus:ring-cyan-500/30 transition-all font-mono">
+                </div>
+                
+                <!-- 도메인 분류 -->
+                <div>
+                    <label class="text-slate-400 block mb-1.5 font-semibold">도메인 분류 (Domain)</label>
+                    <select id="newEcuDomain" class="w-full bg-slate-900/60 border border-slate-700/80 rounded-xl p-2.5 text-white focus:outline-none focus:border-cyan-500/80 focus:ring-1 focus:ring-cyan-500/30 transition-all">
+                        <option value="POWERTRAIN">POWERTRAIN (파워트레인)</option>
+                        <option value="CHASSIS">CHASSIS (섀시)</option>
+                        <option value="ADAS">ADAS (자율주행/운전자보조)</option>
+                        <option value="BODY">BODY (바디)</option>
+                        <option value="INFOTAINMENT">INFOTAINMENT (인포테인먼트)</option>
+                        <option value="NETWORK">NETWORK (네트워크)</option>
+                    </select>
+                </div>
+                
+                <!-- 연결망 구성 (링크) -->
+                <div>
+                    <label class="text-slate-400 block mb-1.5 font-semibold">연결할 통신망 제어기 선택 (Links)</label>
+                    <div id="newEcuLinksContainer" class="bg-slate-900/60 border border-slate-700/80 rounded-xl p-3 h-36 overflow-y-auto grid grid-cols-2 gap-2 font-mono text-[10px]">
+                        <!-- 동적으로 체크박스 생성 -->
+                    </div>
+                </div>
+            </div>
+            
+            <div class="flex space-x-2 mt-6 text-xs font-semibold">
+                <button onclick="closeAddEcuModal()" class="flex-1 py-2.5 rounded-xl bg-slate-800/80 border border-slate-700/60 text-slate-350 hover:bg-slate-700 hover:text-white transition">취소</button>
+                <button onclick="submitNewEcu()" class="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white shadow-[0_0_15px_rgba(6,182,212,0.2)] transition">등록 완료</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- [제어기 수정 모달창] 제어기 정보를 변경하는 팝업 -->
+    <!-- ========================================== -->
+    <div id="editEcuModal" class="fixed inset-0 bg-black/60 z-50 flex items-center justify-center hidden backdrop-blur-md transition-all duration-300">
+        <div class="bg-slate-950/80 border border-slate-750/80 p-6 rounded-2xl w-[420px] shadow-[0_0_40px_rgba(0,0,0,0.6),0_0_50px_rgba(6,182,212,0.1)] modal-animate-enter backdrop-blur-xl relative">
+            <h3 class="text-base font-bold text-white mb-4 flex items-center space-x-2 tracking-wide border-b border-slate-800/80 pb-2.5">
+                <i class="fa-solid fa-pen-to-square text-cyan-400"></i>
+                <span>제어기 정보 수정</span>
+            </h3>
+            
+            <div class="space-y-4 text-xs">
+                <!-- 제어기 ID (수정 불가) -->
+                <div>
+                    <label class="text-slate-500 block mb-1.5 font-semibold">제어기 ID (수정 불가)</label>
+                    <input type="text" id="editEcuId" disabled class="w-full bg-slate-900/40 border border-slate-800 rounded-xl p-2.5 text-slate-400 font-mono uppercase cursor-not-allowed">
+                </div>
+                
+                <!-- 제어기 명칭 -->
+                <div>
+                    <label class="text-slate-400 block mb-1.5 font-semibold">제어기 명칭 (국문 풀네임)</label>
+                    <input type="text" id="editEcuName" placeholder="예: 후륜 모터제어유닛" class="w-full bg-slate-900/60 border border-slate-700/80 rounded-xl p-2.5 text-white placeholder-slate-650 focus:outline-none focus:border-cyan-500/80 focus:ring-1 focus:ring-cyan-500/30 transition-all">
+                </div>
+                
+                <!-- 제어기 설명 -->
+                <div>
+                    <label class="text-slate-400 block mb-1.5 font-semibold">제어기 설명 (영문명 / 코드)</label>
+                    <input type="text" id="editEcuDesc" placeholder="예: Motor Control Unit 2" class="w-full bg-slate-900/60 border border-slate-700/80 rounded-xl p-2.5 text-white placeholder-slate-650 focus:outline-none focus:border-cyan-500/80 focus:ring-1 focus:ring-cyan-500/30 transition-all font-mono">
+                </div>
+                
+                <!-- 도메인 분류 -->
+                <div>
+                    <label class="text-slate-400 block mb-1.5 font-semibold">도메인 분류 (Domain)</label>
+                    <select id="editEcuDomain" class="w-full bg-slate-900/60 border border-slate-700/80 rounded-xl p-2.5 text-white focus:outline-none focus:border-cyan-500/80 focus:ring-1 focus:ring-cyan-500/30 transition-all">
+                        <option value="POWERTRAIN">POWERTRAIN (파워트레인)</option>
+                        <option value="CHASSIS">CHASSIS (섀시)</option>
+                        <option value="ADAS">ADAS (자율주행/운전자보조)</option>
+                        <option value="BODY">BODY (바디)</option>
+                        <option value="INFOTAINMENT">INFOTAINMENT (인포테인먼트)</option>
+                        <option value="NETWORK">NETWORK (네트워크)</option>
+                    </select>
+                </div>
+                
+                <!-- 연결망 구성 (링크) -->
+                <div>
+                    <label class="text-slate-400 block mb-1.5 font-semibold">연결할 통신망 제어기 선택 (Links)</label>
+                    <div id="editEcuLinksContainer" class="bg-slate-900/60 border border-slate-700/80 rounded-xl p-3 h-36 overflow-y-auto grid grid-cols-2 gap-2 font-mono text-[10px]">
+                        <!-- 동적으로 체크박스 생성 -->
+                    </div>
+                </div>
+            </div>
+            
+            <div class="flex space-x-2 mt-6 text-xs font-semibold">
+                <button onclick="closeEditEcuModal()" class="flex-1 py-2.5 rounded-xl bg-slate-800/80 border border-slate-700/60 text-slate-350 hover:bg-slate-700 hover:text-white transition">취소</button>
+                <button onclick="submitEditEcu()" class="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white shadow-[0_0_15px_rgba(6,182,212,0.2)] transition">수정 완료</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- [DTC 관리 플로팅 팝업창] 우클릭 시 생성되는 창 -->
+    <!-- ========================================== -->
+    <div id="dtcManagerPopup" class="absolute bg-slate-950/85 border border-slate-750/70 p-4 rounded-2xl shadow-[0_0_30px_rgba(0,0,0,0.5),0_0_40px_rgba(6,182,212,0.12)] z-50 w-64 hidden backdrop-blur-xl transition-all duration-150 modal-animate-enter">
+        <div class="flex items-center justify-between mb-3 border-b border-slate-800/80 pb-2">
+            <h4 id="dtcPopupTitle" class="text-[11px] font-bold text-cyan-400 flex items-center space-x-1.5">
+                <i class="fa-solid fa-triangle-exclamation"></i>
+                <span>제어기 DTC 목록</span>
+            </h4>
+            <button onclick="closeDtcManager()" class="text-slate-500 hover:text-white transition text-xs">&times;</button>
+        </div>
+        
+        <!-- DTC 목록 출력 영역 -->
+        <ul id="dtcList" class="space-y-1.5 max-h-40 overflow-y-auto mb-3 text-xs pr-1">
+            <!-- 동적으로 DTC 리스트 생성 -->
+        </ul>
+        
+        <!-- DTC 추가 입력창 -->
+        <div class="flex space-x-1.5 text-xs">
+            <input type="text" id="newDtcInput" placeholder="DTC 코드 (예: P0A80)" class="flex-1 bg-slate-900/40 border border-slate-700/80 rounded-xl px-2.5 py-1.5 text-white placeholder-slate-650 focus:outline-none focus:border-cyan-500/80 focus:ring-1 focus:ring-cyan-500/30 transition-colors uppercase font-mono text-[10px]">
+            <button id="addDtcBtn" class="bg-cyan-600 hover:bg-cyan-500 text-white px-2.5 py-1.5 rounded-xl font-bold transition flex items-center justify-center">
+                <i class="fa-solid fa-plus"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- Javascript 핵심 로직 (데이터 관리, 렌더링, 이벤트) -->
+    <!-- ========================================== -->
+    <script>
+        /* 
+         * 1. 데이터베이스: 43개 제어기 코어 데이터 (불변 초기값)
+         * - id: 제어기 약어
+         * - name: 제어기 한글 풀네임
+         * - domain: 소속 카테고리 (필터링 및 색상 결정에 사용)
+         * - status: 상태 (normal, warning, fault)
+         * - links: 해당 제어기와 직접 연결되는 다른 제어기 ID (통신선 그리기용)
+         * - coords: 3D 뷰(top, side, front)에 따른 컨테이너 대비 % 좌표값
+         */
+        const DEFAULT_ECU_DATA = [
+            { id: "ADAS", name: "운전자보조주차시스템", desc: "ADAS_PRK", domain: "ADAS", status: "normal", links: ["FR_Radar", "Camera", "CCU", "HOD"], coords: { top: {x: 45, y: 30}, side: {x: 42, y: 38}, front: {x: 50, y: 38} } },
+            { id: "AIRCON", name: "에어컨", desc: "AIRCON", domain: "BODY", status: "normal", links: ["CCU", "Cooler"], coords: { top: {x: 35, y: 45}, side: {x: 35, y: 44}, front: {x: 55, y: 48} } },
+            { id: "BMS", name: "배터리 매니지먼트 시스템", desc: "Battery Management System", domain: "POWERTRAIN", status: "fault", links: ["MCU", "ICCU", "VPC"], coords: { top: {x: 55, y: 50}, side: {x: 55, y: 65}, front: {x: 50, y: 75} } },
+            { id: "BCM", name: "BCM", desc: "Body Control Module", domain: "BODY", status: "normal", links: ["CCU", "IAU", "SMK", "AIRCON", "DAU", "PSD", "PTG", "PDC", "ISCM"], coords: { top: {x: 42, y: 70}, side: {x: 40, y: 52}, front: {x: 70, y: 52} } },
+            { id: "IAU", name: "IAU", desc: "Identity Authentication Unit", domain: "BODY", status: "normal", links: ["BCM", "SMK", "UWB-BLE"], coords: { top: {x: 48, y: 70}, side: {x: 46, y: 52}, front: {x: 75, y: 52} } },
+            { id: "SMK", name: "SMK", desc: "Smart Key", domain: "BODY", status: "normal", links: ["BCM", "IAU"], coords: { top: {x: 52, y: 70}, side: {x: 50, y: 52}, front: {x: 80, y: 52} } },
+            { id: "TPMS", name: "TPMS", desc: "Tire Pressure Monitoring System", domain: "CHASSIS", status: "normal", links: ["BRK", "CCU"], coords: { top: {x: 70, y: 30}, side: {x: 70, y: 60}, front: {x: 80, y: 70} } },
+            { id: "BRK", name: "제동제어", desc: "Brake", domain: "CHASSIS", status: "warning", links: ["CCU", "EBB", "TPMS", "STR"], coords: { top: {x: 25, y: 70}, side: {x: 26, y: 60}, front: {x: 25, y: 70} } },
+            { id: "CCU", name: "통신 통합 제어 유닛", desc: "Central Communication Unit", domain: "NETWORK", status: "normal", links: ["VPC", "BRK", "ADAS", "BCM", "CCNC", "PLCM"], coords: { top: {x: 44, y: 50}, side: {x: 44, y: 48}, front: {x: 50, y: 45} } },
+            { id: "CLU", name: "클러스터모듈", desc: "Cluster Module", domain: "INFOTAINMENT", status: "normal", links: ["CCNC", "CCU"], coords: { top: {x: 32, y: 30}, side: {x: 34, y: 36}, front: {x: 35, y: 40} } },
+            { id: "CCNC", name: "차량 커넥티드 내비게이션 유닛", desc: "Connected Car Navigation Cockpit", domain: "INFOTAINMENT", status: "normal", links: ["CCU", "CLU", "DCU", "ETCS", "VESS", "WPC"], coords: { top: {x: 38, y: 50}, side: {x: 38, y: 40}, front: {x: 58, y: 42} } },
+            { id: "CRR", name: "측방레이더", desc: "Corner Radar", domain: "ADAS", status: "normal", links: ["ADAS"], coords: { top: {x: 85, y: 25}, side: {x: 85, y: 50}, front: {x: 15, y: 55} } },
+            { id: "DCU", name: "데이터 커넥티비티 유닛", desc: "Data Connectivity Unit", domain: "INFOTAINMENT", status: "normal", links: ["CCNC"], coords: { top: {x: 38, y: 65}, side: {x: 38, y: 30}, front: {x: 65, y: 35} } },
+            { id: "DAU", name: "운전석도어모듈", desc: "Door Area Unit", domain: "BODY", status: "normal", links: ["BCM", "DHSM_FL", "DHSM_FR"], coords: { top: {x: 42, y: 15}, side: {x: 42, y: 45}, front: {x: 15, y: 45} } },
+            { id: "DHSM_FL", name: "도어 핸들 센서 모듈", desc: "Door Handle Sensor Module-Front L", domain: "BODY", status: "normal", links: ["DAU"], coords: { top: {x: 40, y: 10}, side: {x: 40, y: 48}, front: {x: 12, y: 48} } },
+            { id: "DHSM_FR", name: "도어 핸들 센서 모듈", desc: "Door Handle Sensor Module-Front R", domain: "BODY", status: "normal", links: ["DAU"], coords: { top: {x: 40, y: 90}, side: {x: 40, y: 48}, front: {x: 88, y: 48} } },
+            { id: "E-Shifter", name: "전자식변속레버", desc: "E-Shifter", domain: "POWERTRAIN", status: "normal", links: ["VPC"], coords: { top: {x: 42, y: 50}, side: {x: 42, y: 52}, front: {x: 50, y: 55} } },
+            { id: "EBB", name: "제동제어", desc: "EBB(ABS/ESP)", domain: "CHASSIS", status: "normal", links: ["BRK"], coords: { top: {x: 22, y: 70}, side: {x: 24, y: 58}, front: {x: 22, y: 68} } },
+            { id: "ETCS", name: "전자통행료 지불 시스템", desc: "Electronic Toll Collection System", domain: "INFOTAINMENT", status: "normal", links: ["CCNC"], coords: { top: {x: 38, y: 50}, side: {x: 36, y: 25}, front: {x: 50, y: 25} } },
+            { id: "FR_Radar", name: "전방레이더", desc: "Front Radar", domain: "ADAS", status: "normal", links: ["ADAS"], coords: { top: {x: 10, y: 50}, side: {x: 10, y: 55}, front: {x: 50, y: 60} } },
+            { id: "Camera", name: "전방카메라", desc: "Front View Camera", domain: "ADAS", status: "normal", links: ["ADAS"], coords: { top: {x: 34, y: 50}, side: {x: 34, y: 30}, front: {x: 50, y: 30} } },
+            { id: "HOD", name: "손 감지 기능", desc: "Hands on Detection", domain: "ADAS", status: "normal", links: ["STR", "ADAS"], coords: { top: {x: 34, y: 35}, side: {x: 34, y: 42}, front: {x: 35, y: 45} } },
+            { id: "ICCU", name: "통합충전제어장치", desc: "Integrated Charging Control Unit", domain: "POWERTRAIN", status: "normal", links: ["BMS", "VCMS", "PLCM"], coords: { top: {x: 80, y: 50}, side: {x: 80, y: 60}, front: {x: 50, y: 80} } },
+            { id: "ISCM", name: "통합 안전 제어 모듈", desc: "Integrated Safety Control Module", domain: "BODY", status: "normal", links: ["BCM"], coords: { top: {x: 46, y: 50}, side: {x: 46, y: 55}, front: {x: 50, y: 58} } },
+            { id: "Cooler", name: "로컬 쿨러 컨트롤러", desc: "Local Cooler Controler", domain: "BODY", status: "normal", links: ["AIRCON"], coords: { top: {x: 20, y: 45}, side: {x: 20, y: 50}, front: {x: 50, y: 65} } },
+            { id: "MCU", name: "모터제어유닛-앞", desc: "Motor Control Unit", domain: "POWERTRAIN", status: "normal", links: ["BMS", "VPC"], coords: { top: {x: 26, y: 50}, side: {x: 26, y: 58}, front: {x: 50, y: 70} } },
+            { id: "OCS", name: "승객구분시스템", desc: "Occupant Classification System", domain: "BODY", status: "normal", links: ["BCM"], coords: { top: {x: 48, y: 65}, side: {x: 48, y: 50}, front: {x: 65, y: 50} } },
+            { id: "PIM", name: "PBV 인터페이스 모듈", desc: "PBV Interface Module", domain: "BODY", status: "normal", links: ["BCM"], coords: { top: {x: 60, y: 50}, side: {x: 60, y: 55}, front: {x: 50, y: 60} } },
+            { id: "PSD", name: "파워슬라이딩도어", desc: "Power Sliding Door", domain: "BODY", status: "normal", links: ["BCM"], coords: { top: {x: 60, y: 85}, side: {x: 60, y: 45}, front: {x: 85, y: 45} } },
+            { id: "PTG", name: "파워테일게이트", desc: "Power Tail Gate", domain: "BODY", status: "normal", links: ["BCM"], coords: { top: {x: 88, y: 50}, side: {x: 88, y: 45}, front: {x: 50, y: 42} } },
+            { id: "PDC", name: "파워넷 도메인 컨트롤", desc: "Power-net Domain Control", domain: "BODY", status: "normal", links: ["BCM"], coords: { top: {x: 24, y: 35}, side: {x: 24, y: 50}, front: {x: 35, y: 55} } },
+            { id: "PLCM", name: "전력선 통신 모듈", desc: "Powerline Communication Module", domain: "NETWORK", status: "normal", links: ["ICCU", "CCU"], coords: { top: {x: 84, y: 30}, side: {x: 84, y: 55}, front: {x: 20, y: 80} } },
+            { id: "SCU", name: "전자식변속제어", desc: "SBW Control Unit (SCU)", domain: "POWERTRAIN", status: "normal", links: ["VPC"], coords: { top: {x: 30, y: 50}, side: {x: 30, y: 58}, front: {x: 50, y: 72} } },
+            { id: "SAC", name: "확장성 보조 컨트롤러", desc: "Scalability Assist Controller", domain: "BODY", status: "normal", links: ["BCM"], coords: { top: {x: 64, y: 30}, side: {x: 64, y: 50}, front: {x: 35, y: 52} } },
+            { id: "SHVCU-F", name: "시트열선통풍제어유닛-앞", desc: "Seat heater Ventilation Unit-Front", domain: "BODY", status: "normal", links: ["BCM"], coords: { top: {x: 44, y: 30}, side: {x: 44, y: 50}, front: {x: 35, y: 50} } },
+            { id: "SHVCU-R", name: "시트열선통풍제어유닛-뒤", desc: "Seat heater Ventilation Unit-Rear", domain: "BODY", status: "normal", links: ["BCM"], coords: { top: {x: 58, y: 30}, side: {x: 58, y: 50}, front: {x: 35, y: 52} } },
+            { id: "STR", name: "파워스티어링", desc: "Steering", domain: "CHASSIS", status: "normal", links: ["BRK", "HOD", "SWRC"], coords: { top: {x: 32, y: 35}, side: {x: 32, y: 45}, front: {x: 32, y: 50} } },
+            { id: "SWRC", name: "스티어링휠리모트컨트롤", desc: "Steering Wheel Remote Control", domain: "BODY", status: "normal", links: ["STR"], coords: { top: {x: 32, y: 35}, side: {x: 31, y: 41}, front: {x: 32, y: 44} } },
+            { id: "UWB-BLE", name: "초광대역/저전력 블루투스 모듈", desc: "Ultra Wide Band Bluetooth LE", domain: "BODY", status: "normal", links: ["IAU"], coords: { top: {x: 50, y: 50}, side: {x: 50, y: 25}, front: {x: 50, y: 22} } },
+            { id: "VCMS", name: "차량 충전 관리 제어기", desc: "Vehicle Charging Management System", domain: "POWERTRAIN", status: "normal", links: ["ICCU", "VPC"], coords: { top: {x: 86, y: 50}, side: {x: 86, y: 58}, front: {x: 50, y: 82} } },
+            { id: "VPC", name: "차량 플랫폼 컨트롤러", desc: "Vehicle Platform Controller", domain: "POWERTRAIN", status: "normal", links: ["CCU", "BMS", "MCU", "ICCU", "VCMS", "SCU", "E-Shifter"], coords: { top: {x: 40, y: 50}, side: {x: 40, y: 48}, front: {x: 50, y: 48} } },
+            { id: "VESS", name: "가상엔진사운드", desc: "Virtual Engine Sound System", domain: "POWERTRAIN", status: "normal", links: ["CCNC"], coords: { top: {x: 8, y: 50}, side: {x: 8, y: 60}, front: {x: 50, y: 65} } },
+            { id: "WPC", name: "무선충전시스템", desc: "Wireless Power Charger", domain: "BODY", status: "normal", links: ["CCNC"], coords: { top: {x: 40, y: 45}, side: {x: 40, y: 52}, front: {x: 45, y: 52} } }
+        ];
+
+        /* 2. 상태 변수: 앱이 동작하는 동안 변경되는 동적 데이터 보관 */
+        let ecuData = [];            // LocalStorage 반영 후 실제 렌더링에 쓰일 가변 데이터
+        let currentView = 'top';     // 현재 선택된 3D 뷰 ('top', 'side', 'front')
+        let activeDomain = 'ALL';    // 선택된 도메인 필터 상태
+        let searchQuery = '';        // 입력된 검색어 상태
+        let selectedEcuId = null;    // 사용자가 클릭한 제어기 ID 저장
+        
+        let isEditMode = false;      // 비밀번호 해제 후 진입하는 위치 세팅(드래그) 모드 활성화 여부
+        let draggingNodeId = null;   // 현재 마우스로 드래그 중인 노드의 ID
+
+        /* 
+         * 3. 초기화 (window.onload) 
+         * - 페이지가 열릴 때 가장 먼저 실행되어 초기 설정을 세팅합니다.
+         */
+        window.onload = () => {
+            loadPositions(); // 저장된 노드 좌표 불러오기
+            
+            // 검색 테스트용으로 일부 제어기에 임의의 DTC 코드 삽입
+            ecuData.forEach(node => {
+                if (!node.dtcs) node.dtcs = [];
+                if (node.id === 'BMS' && !node.dtcs.includes('P0A80')) node.dtcs.push('P0A80');
+                if (node.id === 'ADAS' && !node.dtcs.includes('E0101')) node.dtcs.push('E0101');
+            });
+
+            updateHeaderNodeCount();
+            renderEcuList();    // 좌측 제어기 목록 렌더링
+            switchView('top');  // 탑뷰 기본 로딩 (이 안에서 노드와 선도 렌더링됨)
+            setupDragAndDrop(); // 마우스/터치 드래그 이벤트 등록
+            
+            // 브라우저 창 크기가 변할 때 연결선 좌표가 어긋나지 않도록 다시 그리기
+            window.addEventListener('resize', renderNetworkConnections);
+        };
+
+        /* 
+         * [유틸리티] 도메인(기능군)별로 지정된 고유 색상을 반환합니다. 
+         * 노드 테두리, 연결선, 뱃지 텍스트 색상 등에 사용됩니다.
+         */
+        function getDomainColor(domain) {
+            switch(domain) {
+                case 'POWERTRAIN': return '#06b6d4'; // Cyan (청록)
+                case 'CHASSIS': return '#10b981';    // Emerald (에메랄드)
+                case 'ADAS': return '#f59e0b';       // Amber (호박색)
+                case 'BODY': return '#6366f1';       // Indigo (남색)
+                case 'INFOTAINMENT': return '#ec4899';// Pink (핑크)
+                case 'NETWORK': return '#8b5cf6';    // Violet (보라)
+                default: return '#94a3b8';           // Slate (기본 회색)
+            }
+        }
+
+        /* 
+         * [로직] 검색어 입력 처리 
+         * 사용자가 좌측 검색창에 글자를 칠 때마다 실행되어 검색어를 상태에 저장하고 화면을 갱신합니다.
+         */
+        function handleSearch() {
+            searchQuery = document.getElementById('searchInput').value.toUpperCase().trim();
+            selectedEcuId = null; // 검색어 변경 시 기존 선택 해제
+            renderEcuList();      // 리스트 갱신
+            renderEcuPins();      // 노드 갱신
+        }
+
+        /* 
+         * [로직] 뷰 전환 (switchView)
+         * 탑뷰, 측면뷰, 전방뷰 버튼 클릭 시 해당하는 SVG 도면만 보여주고 노드 좌표를 해당 뷰에 맞춰 다시 그립니다.
+         */
+        function switchView(viewName) {
+            currentView = viewName;
+            
+            // 3개의 버튼 스타일을 비활성/활성 상태로 업데이트
+            ['Top', 'Side', 'Front'].forEach(v => {
+                const btn = document.getElementById(`view${v}Btn`);
+                if(v.toLowerCase() === viewName) {
+                    btn.className = "px-3 py-1 rounded bg-cyan-950 text-cyan-400 border border-cyan-500/50 shadow font-semibold";
+                } else {
+                    btn.className = "px-3 py-1 rounded text-slate-400 hover:text-white transition";
+                }
+            });
+
+            // 선택된 뷰의 SVG만 보여주고 나머지는 숨김 처리
+            document.getElementById('svgTopView').classList.add('hidden');
+            document.getElementById('svgSideView').classList.add('hidden');
+            document.getElementById('svgFrontView').classList.add('hidden');
+            document.getElementById(`svg${viewName.charAt(0).toUpperCase() + viewName.slice(1)}View`).classList.remove('hidden');
+
+            renderEcuPins(); // 변경된 뷰의 좌표에 맞춰 제어기 핀들 다시 배치
+        }
+
+        /* 
+         * [로직] 제어기 핀(노드) 렌더링 (renderEcuPins)
+         * 검색어 및 도메인 필터에 맞는 제어기들을 중앙 캔버스에 div 요소로 생성하여 배치합니다.
+         */
+        function renderEcuPins() {
+            const container = document.getElementById('ecuPinsContainer');
+            container.innerHTML = ''; // 기존 핀 초기화
+
+            ecuData.forEach(node => {
+                // 1. 도메인 조건 일치 여부 확인
+                const matchDomain = activeDomain === 'ALL' || node.domain === activeDomain;
+                // 2. 검색어 조건 일치 여부 확인 (ID, 이름, DTC 검색)
+                const matchSearch = searchQuery === '' || 
+                                    node.id.toUpperCase().includes(searchQuery) || 
+                                    node.name.toUpperCase().includes(searchQuery) ||
+                                    (node.dtcs && node.dtcs.some(code => code.toUpperCase().includes(searchQuery)));
+                
+                // 조건에 맞지 않으면 그리지 않고 넘어감
+                if(!matchDomain || !matchSearch) return;
+
+                // 3. 현재 선택된 뷰포트에 해당하는 좌표 퍼센트값 가져오기
+                const pos = node.coords[currentView];
+                if(!pos) return;
+
+                // 4. [2.5D 원근감 효과] 특정 뷰에서 뒤쪽에 위치한 제어기들을 흐리고 작게 만들어 입체감 부여
+                let depthClass = "";
+                if (currentView === 'front' && pos.y > 60) depthClass = "depth-blur"; // 전방뷰: y값이 크면 차 뒤쪽
+                if (currentView === 'side' && pos.x > 70) depthClass = "depth-blur";  // 측면뷰: x값이 크면 트렁크 쪽
+
+                // 5. HTML 요소(div) 생성 및 위치 지정
+                const pin = document.createElement('div');
+                pin.id = `pin-${node.id}`;
+                pin.dataset.id = node.id; // 드래그 앤 드롭 시 타겟 구분을 위해 ID 할당
+                
+                const isSelected = (selectedEcuId === node.id);
+                // 선택된 노드는 크기를 키우고 가장 위로 올림(z-40)
+                const scaleClass = isSelected ? 'scale-125 z-40' : 'hover:scale-110 z-30';
+                
+                const dColor = getDomainColor(node.domain);
+                // 선택된 노드는 흰색 테두리와 그림자광 추가
+                const borderStyle = isSelected ? `border-color: #fff; box-shadow: 0 0 10px ${dColor};` : `border-color: ${dColor};`;
+                
+                // 컨테이너 크기 대비 %로 절대 위치(absolute) 배치 (translate로 정중앙 맞춤)
+                pin.className = `absolute pointer-events-auto transform -translate-x-1/2 -translate-y-1/2 cursor-pointer transition-all duration-200 flex flex-col items-center group ${scaleClass} ${depthClass}`;
+                pin.style.left = `${pos.x}%`;
+                pin.style.top = `${pos.y}%`;
+
+                // 상태(status)가 오류(fault)이면 붉은색 파동(pulse) 애니메이션 활성화
+                const pulseClass = (node.status === 'fault') ? 'pulse-active' : '';
+
+                // 노드의 내부 HTML (작은 원형 박스 및 호버 툴팁)
+                pin.innerHTML = `
+                    <div class="w-6 h-6 rounded-full border-[2.5px] bg-slate-900 flex items-center justify-center font-mono text-[9px] font-bold ${pulseClass}" style="color: ${dColor}; ${borderStyle}">
+                        ${node.id.substring(0, 3)}
+                    </div>
+                    <div class="mt-1 px-1.5 py-0.5 rounded bg-black/80 border border-slate-700 text-[9px] font-mono text-slate-300 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
+                        ${node.id}
+                    </div>
+                `;
+
+                // 마우스 클릭(mousedown) 이벤트 바인딩 (세팅 모드가 아닐 때만 상세 정보 오픈)
+                pin.onmousedown = (e) => {
+                    if(!isEditMode && e.button !== 2) {
+                        selectECU(node.id);
+                        e.stopPropagation();
+                    }
+                };
+
+                // 마우스 우클릭(contextmenu) 이벤트 바인딩
+                pin.oncontextmenu = (e) => {
+                    e.preventDefault();
+                    if(!isEditMode) {
+                        openDtcManager(node.id, e.clientX, e.clientY);
+                        e.stopPropagation();
+                    }
+                };
+
+                container.appendChild(pin);
+            });
+
+            // 모든 핀 배치가 끝난 후 통신선(SVG 선) 렌더링 실행
+            // 브라우저가 DOM을 그린 직후 픽셀 사이즈를 계산하기 위해 10ms 딜레이 부여
+            setTimeout(renderNetworkConnections, 10);
+        }
+
+        /* 
+         * [로직] 통신선(점선 애니메이션) 렌더링 (renderNetworkConnections)
+         * 생성된 핀들의 좌표를 실제 픽셀(px)로 환산하여 SVG <line> 태그로 핀과 핀 사이를 연결합니다.
+         */
+        function renderNetworkConnections() {
+            const svg = document.getElementById('svgNetworkConnections');
+            svg.innerHTML = ''; // 기존 통신선 초기화
+
+            // 화면상 차량 도면 래퍼의 '실제 픽셀 크기'를 정밀 측정 (퍼센트 좌표를 px 좌표로 변환하기 위함)
+            const wrapper = document.getElementById('vehicleSvgWrapper');
+            const rect = wrapper.getBoundingClientRect();
+            const w = rect.width;
+            const h = rect.height;
+
+            // 좌표 오차를 방지하기 위해 SVG viewBox를 실제 렌더링 크기에 일치시킴
+            svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
+
+            // 양방향 중복으로 선을 2번 그리는 것을 방지하기 위한 Set 메모리
+            const drawnLinks = new Set(); 
+
+            ecuData.forEach(sourceNode => {
+                // 시작 노드(Source) 필터링 확인
+                const matchDomainSrc = activeDomain === 'ALL' || sourceNode.domain === activeDomain;
+                const matchSearchSrc = searchQuery === '' || 
+                                       sourceNode.id.toUpperCase().includes(searchQuery) || 
+                                       sourceNode.name.toUpperCase().includes(searchQuery) ||
+                                       (sourceNode.dtc && sourceNode.dtc.toUpperCase().includes(searchQuery));
+                if(!matchDomainSrc || !matchSearchSrc) return;
+
+                const sPos = sourceNode.coords[currentView];
+                if (!sPos) return;
+
+                // 시작 노드 좌표를 실제 px로 계산
+                const x1 = (sPos.x / 100) * w;
+                const y1 = (sPos.y / 100) * h;
+
+                // links 배열에 있는 타겟 제어기들과 연결 시작
+                sourceNode.links.forEach(targetId => {
+                    const targetNode = ecuData.find(n => n.id === targetId);
+                    if (!targetNode) return;
+                    
+                    // 타겟 노드(Target) 필터링 확인
+                    const matchDomainTgt = activeDomain === 'ALL' || targetNode.domain === activeDomain;
+                    const matchSearchTgt = searchQuery === '' || 
+                                           targetNode.id.toUpperCase().includes(searchQuery) || 
+                                           targetNode.name.toUpperCase().includes(searchQuery) ||
+                                           (targetNode.dtc && targetNode.dtc.toUpperCase().includes(searchQuery));
+                    if(!matchDomainTgt || !matchSearchTgt) return;
+
+                    // 중복 그리기 방지 키 생성 (예: "ECM-GW")
+                    const linkKey = [sourceNode.id, targetId].sort().join('-');
+                    if (drawnLinks.has(linkKey)) return;
+                    drawnLinks.add(linkKey); // 그렸음을 기록
+
+                    const tPos = targetNode.coords[currentView];
+                    if (!tPos) return;
+
+                    // 타겟 노드 좌표를 실제 px로 계산
+                    const x2 = (tPos.x / 100) * w;
+                    const y2 = (tPos.y / 100) * h;
+
+                    // 통신선 시각 디자인(색상, 두께, 흐름 속도) 결정
+                    let sColor = "rgba(148, 163, 184, 0.15)"; // 기본 (아주 흐린 회색)
+                    let sWidth = "1.5";
+                    let isAnim = false; // 점선 애니메이션 여부
+                    let lineClass = ""; // 할당될 CSS 클래스
+
+                    // 사용자가 두 제어기 중 하나라도 선택했다면 강하게 활성화 
+                    if (selectedEcuId === sourceNode.id || selectedEcuId === targetId) {
+                        sColor = getDomainColor(sourceNode.domain);
+                        sWidth = "2.5";
+                        isAnim = true;
+                        lineClass = "flow-line-fast"; // 빠른 데이터 전송 효과
+                    } 
+                    // 선택된 것은 없지만 도메인 필터링 중이라면 해당 도메인 색상으로 활성화
+                    else if (activeDomain !== 'ALL') {
+                        sColor = getDomainColor(activeDomain);
+                        sWidth = "2";
+                        isAnim = true;
+                        lineClass = "flow-line"; // 평시 데이터 전송 효과
+                    }
+
+                    // 계산된 값을 바탕으로 SVG 선(Line) 태그 생성 및 부착
+                    const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+                    line.setAttribute("x1", x1);
+                    line.setAttribute("y1", y1);
+                    line.setAttribute("x2", x2);
+                    line.setAttribute("y2", y2);
+                    line.setAttribute("stroke", sColor);
+                    line.setAttribute("stroke-width", sWidth);
+                    
+                    if (isAnim) {
+                        line.setAttribute("class", lineClass);
+                    } else {
+                        // 애니메이션이 없으면 그냥 고정 점선
+                        line.setAttribute("stroke-dasharray", "4,4");
+                    }
+
+                    svg.appendChild(line);
+                });
+            });
+        }
+
+        /* 
+         * [로직] 도메인(기능군) 필터 클릭 처리 (filterByDomain)
+         * 도메인 필터 버튼을 누르면 화면 좌측 리스트와 중앙 제어기/연결선을 해당 카테고리로 필터링합니다.
+         */
+        function filterByDomain(domain) {
+            activeDomain = domain;
+            selectedEcuId = null; // 필터가 바뀌면 선택된 것도 초기화
+            
+            // 검색어 및 검색 입력창 리셋
+            document.getElementById('searchInput').value = '';
+            searchQuery = '';
+            
+            // 모든 필터 버튼의 색상을 기본값(비활성)으로 변경
+            document.querySelectorAll('[id^="filter-"]').forEach(btn => {
+                btn.className = "py-1 rounded bg-slate-900 text-slate-400 border border-slate-800 transition";
+                btn.style.borderColor = '';
+                btn.style.color = '';
+            });
+            
+            // 선택된 버튼만 도메인 고유 색상으로 하이라이트
+            const activeBtn = document.getElementById(`filter-${domain}`);
+            if(domain === 'ALL') {
+                activeBtn.className = "py-1 rounded bg-slate-700 text-white font-bold border border-slate-500 transition";
+            } else {
+                activeBtn.className = "py-1 rounded bg-slate-800 font-bold border transition text-white";
+                activeBtn.style.borderColor = getDomainColor(domain);
+            }
+
+            renderEcuList(); // 리스트 갱신
+            renderEcuPins(); // 화면 핀 갱신
+        }
+
+        /* 
+         * [로직] 좌측 제어기 목록 HTML 생성 (renderEcuList)
+         * 필터링 된 데이터들을 좌측 패널에 리스트업 합니다.
+         */
+        function renderEcuList() {
+            const list = document.getElementById('ecuListContainer');
+            list.innerHTML = '';
+            
+            ecuData.forEach(node => {
+                const matchDomain = activeDomain === 'ALL' || node.domain === activeDomain;
+                const matchSearch = searchQuery === '' || 
+                                    node.id.toUpperCase().includes(searchQuery) || 
+                                    node.name.toUpperCase().includes(searchQuery) ||
+                                    (node.dtcs && node.dtcs.some(code => code.toUpperCase().includes(searchQuery)));
+                
+                if(!matchDomain || !matchSearch) return;
+
+                const item = document.createElement('div');
+                const isSel = (selectedEcuId === node.id);
+                
+                // 상태별 원형 뱃지 색상 (초록, 노랑, 빨강)
+                let statColor = 'bg-emerald-400';
+                if(node.status === 'warning') statColor = 'bg-amber-400';
+                if(node.status === 'fault') statColor = 'bg-rose-500 animate-pulse';
+
+                // 선택된 항목은 청록색 배경, 나머지는 투명 회색 배경
+                item.className = `p-2 rounded cursor-pointer text-xs flex items-center justify-between border transition ${isSel ? 'bg-cyan-900/40 border-cyan-500 text-white shadow-lg shadow-cyan-900/20' : 'bg-slate-900/50 border-transparent text-slate-400 hover:bg-slate-800'}`;
+                
+                item.onclick = () => selectECU(node.id);
+                
+                item.innerHTML = `
+                    <div class="flex items-center space-x-2">
+                        <span class="w-2 h-2 rounded-full ${statColor}"></span>
+                        <span class="font-mono font-bold w-10 text-cyan-300">${node.id}</span>
+                        <span class="truncate w-32">${node.name}</span>
+                    </div>
+                `;
+                list.appendChild(item);
+            });
+        }
+
+        /* 
+         * [로직] 특정 제어기 클릭 시 상세 정보 반영 (selectECU)
+         * 우측 상세 모니터링 패널에 제어기 정보와 가상의 실시간 통신 데이터를 매핑합니다.
+         */
+        function selectECU(id) {
+            selectedEcuId = id;
+            
+            // 리스트 및 핀, 점선 애니메이션 새로고침
+            renderEcuList();
+            renderEcuPins(); 
+
+            const node = ecuData.find(n => n.id === id);
+            if (!node) return;
+
+            // '노드를 클릭하여 확인' 안내창을 숨기고 실제 디테일 패널 표시
+            document.getElementById('detailPanelEmpty').classList.add('hidden');
+            document.getElementById('detailPanelContent').classList.remove('hidden');
+
+            // 텍스트 및 기본 정보 매핑
+            document.getElementById('detailEcuId').innerText = node.id;
+            document.getElementById('detailEcuId').style.color = getDomainColor(node.domain);
+            document.getElementById('detailEcuName').innerText = node.name;
+            document.getElementById('detailEcuDesc').innerText = node.desc || '';
+            
+            // 상단 도메인 뱃지 매핑
+            const domainBadge = document.getElementById('detailDomainBadge');
+            domainBadge.innerText = node.domain;
+            domainBadge.classList.remove('hidden');
+            domainBadge.style.color = getDomainColor(node.domain);
+            domainBadge.style.borderColor = getDomainColor(node.domain);
+            
+            // 제어기 상태 뱃지 업데이트
+            const badge = document.getElementById('detailStatusBadge');
+            if(node.status === 'fault') {
+                badge.innerText = 'FAULT (오류)';
+                badge.className = "px-3 py-1 rounded text-xs font-bold text-rose-400 border border-rose-500/80 bg-rose-950/30";
+            } else if(node.status === 'warning') {
+                badge.innerText = 'WARNING (경고)';
+                badge.className = "px-3 py-1 rounded text-xs font-bold text-amber-400 border border-amber-500/80 bg-amber-950/30";
+            } else {
+                badge.innerText = 'NORMAL';
+                badge.className = "px-3 py-1 rounded text-xs font-bold text-emerald-400 border border-emerald-500/80 bg-emerald-950/30";
+            }
+
+            // 가상의 작동 전압 데이터 랜덤화 삽입 (리얼리티 부여)
+            document.getElementById('detailVoltage').innerText = (13.8 + Math.random() * 0.6).toFixed(1) + " V";
+
+            // 연결된 제어기 네트워크 리스트(버튼) 동적 생성
+            const linksWrap = document.getElementById('detailConnectedList');
+            linksWrap.innerHTML = '';
+            node.links.forEach(link => {
+                const btn = document.createElement('button');
+                btn.className = "px-3 py-1.5 rounded bg-slate-900/60 border border-slate-700 hover:border-cyan-500 text-xs font-mono text-cyan-400 transition";
+                btn.innerText = `→ ${link}`;
+                // 연결된 노드 클릭 시 해당 제어기로 이동
+                btn.onclick = () => selectECU(link); 
+                linksWrap.appendChild(btn);
+            });
+        }
+
+        /* 
+         * [로직] 위치 세팅 모드 진입 요청 (requestEditMode)
+         * 잠겨있다면 비밀번호 창을 띄우고, 이미 켜져있다면 저장하며 모드를 종료합니다.
+         */
+        function requestEditMode() {
+            if (isEditMode) {
+                // 종료 및 저장
+                isEditMode = false;
+                document.getElementById('editBtnText').innerText = "위치 세팅 (잠금)";
+                document.getElementById('editLockIcon').className = "fa-solid fa-lock";
+                savePositions(); // 변경된 좌표 저장
+            } else {
+                // 잠금 해제 팝업 띄우기
+                document.getElementById('passwordModal').classList.remove('hidden');
+                document.getElementById('pwInput').value = '';
+                document.getElementById('pwInput').focus();
+                document.getElementById('pwError').classList.add('hidden');
+            }
+        }
+
+        // 비밀번호 모달 닫기
+        function closePasswordModal() {
+            document.getElementById('passwordModal').classList.add('hidden');
+        }
+
+        // 입력된 비밀번호 검증 (현재 0000으로 고정)
+        function verifyPassword() {
+            const input = document.getElementById('pwInput').value;
+            if (input === '0000') { // 인증 성공
+                closePasswordModal();
+                isEditMode = true;
+                
+                // 세팅 모드 UI 업데이트
+                document.getElementById('editBtnText').innerText = "세팅 중 (클릭 시 저장)";
+                document.getElementById('editLockIcon').className = "fa-solid fa-lock-open";
+                
+                alert("위치 세팅 모드가 활성화되었습니다. 노드를 마우스로 드래그하여 이동하세요.");
+            } else {
+                // 인증 실패
+                document.getElementById('pwError').classList.remove('hidden');
+            }
+        }
+
+        /* 
+         * [로직] 마우스/터치 드래그 앤 드롭 구현 (setupDragAndDrop)
+         * 세팅 모드가 활성화되었을 때, 노드를 드래그하여 좌표(coords)를 갱신합니다.
+         */
+        function setupDragAndDrop() {
+            const wrapper = document.getElementById('vehicleSvgWrapper');
+
+            // 드래그 시작 시 타겟 식별
+            const startDrag = (e) => {
+                if (!isEditMode) return;
+                const pin = e.target.closest('[data-id]'); // 클릭된 요소 중 노드 찾기
+                if (!pin) return;
+                draggingNodeId = pin.dataset.id;
+                e.preventDefault();
+            };
+
+            // 드래그 중 위치 지속 업데이트
+            const doDrag = (e) => {
+                if (!isEditMode || !draggingNodeId) return;
+
+                const rect = wrapper.getBoundingClientRect();
+                
+                // 마우스 이벤트 또는 터치 이벤트의 X, Y 좌표 추출
+                const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+                const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+
+                // 차량 래퍼 요소 대비 퍼센트(%) 좌표로 변환
+                let xPercent = ((clientX - rect.left) / rect.width) * 100;
+                let yPercent = ((clientY - rect.top) / rect.height) * 100;
+
+                // 화면 바깥으로 제어기가 나가지 못하도록 가두기 (5% ~ 95%)
+                xPercent = Math.max(5, Math.min(95, xPercent));
+                yPercent = Math.max(5, Math.min(95, yPercent));
+
+                // 뷰 데이터 모델 좌표 즉시 업데이트
+                const node = ecuData.find(n => n.id === draggingNodeId);
+                if (node && node.coords[currentView]) {
+                    node.coords[currentView] = { x: xPercent, y: yPercent };
+                    
+                    // DOM CSS (left, top) 즉시 반영
+                    const pinEl = document.getElementById(`pin-${draggingNodeId}`);
+                    if (pinEl) {
+                        pinEl.style.left = `${xPercent}%`;
+                        pinEl.style.top = `${yPercent}%`;
+                    }
+                    
+                    // 이동할 때마다 통신선을 다시 그려 핀에 선이 계속 붙어있게 함
+                    renderNetworkConnections(); 
+                }
+            };
+
+            // 드래그 종료
+            const stopDrag = () => { draggingNodeId = null; };
+
+            // PC 마우스 이벤트 리스너 등록
+            wrapper.addEventListener('mousedown', startDrag);
+            window.addEventListener('mousemove', doDrag);
+            window.addEventListener('mouseup', stopDrag);
+
+            // 모바일 터치 이벤트 리스너 등록
+            wrapper.addEventListener('touchstart', startDrag, { passive: false });
+            window.addEventListener('touchmove', doDrag, { passive: false });
+            window.addEventListener('touchend', stopDrag);
+        }
+
+        /* 
+         * [로직] 로컬 스토리지에 드래그한 좌표 영구 저장 (savePositions)
+         */
+        function savePositions() {
+            localStorage.setItem('ar_ecu_positions_v2', JSON.stringify(ecuData));
+            alert("수정된 제어기 위치가 저장되었습니다.");
+        }
+
+        /* 
+         * [로직] 브라우저 열 때 로컬 스토리지에서 좌표 불러오기 (loadPositions)
+         * 저장된 것이 없다면 DEFAULT_ECU_DATA를 그대로 씁니다.
+         */
+        function loadPositions() {
+            const saved = localStorage.getItem('ar_ecu_positions_v2');
+            if (saved) {
+                try {
+                    const parsed = JSON.parse(saved);
+                    // 1. 기본 배열에 있는 제어기 좌표 업데이트
+                    ecuData = DEFAULT_ECU_DATA.map(node => {
+                        const sNode = parsed.find(p => p.id === node.id);
+                        if (sNode && sNode.coords) return { ...node, coords: sNode.coords };
+                        return node;
+                    });
+                    
+                    // 2. 기본 배열에 없는 새 제어기(사용자가 추가한 것)들도 ecuData에 덧붙이기
+                    parsed.forEach(pNode => {
+                        if (!ecuData.some(n => n.id === pNode.id)) {
+                            ecuData.push(pNode);
+                        }
+                    });
+                } catch(e) {
+                    // JSON 파싱 실패 시 기본 데이터 로드
+                    ecuData = JSON.parse(JSON.stringify(DEFAULT_ECU_DATA));
+                }
+            } else {
+                ecuData = JSON.parse(JSON.stringify(DEFAULT_ECU_DATA));
+            }
+        }
+
+        /* 
+         * [로직] 설정 좌표 완전 초기화 (resetPositions)
+         */
+        function resetPositions() {
+            if(confirm("모든 제어기의 위치를 초기 상태로 복구하시겠습니까?")) {
+                localStorage.removeItem('ar_ecu_positions_v2'); // 스토리지 삭제
+                ecuData = JSON.parse(JSON.stringify(DEFAULT_ECU_DATA)); // 원본 복원
+                updateHeaderNodeCount();
+                renderEcuList();
+                renderEcuPins(); // 화면 즉시 초기화
+            }
+        }
+
+        /* 
+         * [로직] 제어기 추가 관련 모달 및 기능 제어 
+         */
+        function openAddEcuModal() {
+            const modal = document.getElementById('addEcuModal');
+            const container = document.getElementById('newEcuLinksContainer');
+            container.innerHTML = '';
+            
+            // 등록된 기존 제어기 목록을 가나다순 정렬하여 체크박스로 제공
+            const sortedNodes = [...ecuData].sort((a, b) => a.id.localeCompare(b.id));
+            
+            sortedNodes.forEach(node => {
+                const div = document.createElement('div');
+                div.className = 'flex items-center space-x-2 p-1 hover:bg-slate-700/30 rounded';
+                div.innerHTML = `
+                    <input type="checkbox" id="link-chk-${node.id}" value="${node.id}" class="accent-cyan-500 rounded border-slate-600 bg-slate-800">
+                    <label for="link-chk-${node.id}" class="text-slate-350 cursor-pointer select-none truncate">${node.id}</label>
+                `;
+                container.appendChild(div);
+            });
+            
+            // 입력 폼 필드 리셋
+            document.getElementById('newEcuId').value = '';
+            document.getElementById('newEcuName').value = '';
+            document.getElementById('newEcuDesc').value = '';
+            document.getElementById('newEcuDomain').value = 'POWERTRAIN';
+            
+            modal.classList.remove('hidden');
+        }
+
+        function closeAddEcuModal() {
+            document.getElementById('addEcuModal').classList.add('hidden');
+        }
+
+        function updateHeaderNodeCount() {
+            const el = document.getElementById('nodeCountSubtitle');
+            if (el) {
+                el.innerText = `${ecuData.length} Node Connections Active | Signal Flow Matrix`;
+            }
+        }
+
+        function submitNewEcu() {
+            const id = document.getElementById('newEcuId').value.trim().toUpperCase();
+            const name = document.getElementById('newEcuName').value.trim();
+            const desc = document.getElementById('newEcuDesc').value.trim();
+            const domain = document.getElementById('newEcuDomain').value;
+            
+            if (!id) {
+                alert("제어기 ID를 입력해 주세요.");
+                return;
+            }
+            
+            if (!/^[A-Z0-9_-]+$/.test(id)) {
+                alert("제어기 ID는 영문 대문자, 숫자, 하이픈(-), 언더바(_)만 사용 가능합니다.");
+                return;
+            }
+            
+            if (ecuData.some(node => node.id === id)) {
+                alert("이미 존재하는 제어기 ID입니다.");
+                return;
+            }
+            
+            if (!name) {
+                alert("제어기 명칭을 입력해 주세요.");
+                return;
+            }
+            
+            // 선택된 링크 수집
+            const links = [];
+            const checkboxes = document.querySelectorAll('#newEcuLinksContainer input[type="checkbox"]:checked');
+            checkboxes.forEach(chk => {
+                links.push(chk.value);
+            });
+            
+            // 새 제어기 기본 좌표(50, 50)으로 객체 생성
+            const newEcu = {
+                id: id,
+                name: name,
+                desc: desc,
+                domain: domain,
+                status: "normal",
+                links: links,
+                coords: {
+                    top: { x: 50, y: 50 },
+                    side: { x: 50, y: 50 },
+                    front: { x: 50, y: 50 }
+                }
+            };
+            
+            // 로컬 리스트에 추가
+            ecuData.push(newEcu);
+            
+            // 양방향 링크 관계 설정 (선택된 타겟 제어기들에도 자신을 링크로 추가)
+            links.forEach(targetId => {
+                const targetNode = ecuData.find(n => n.id === targetId);
+                if (targetNode && !targetNode.links.includes(id)) {
+                    targetNode.links.push(id);
+                }
+            });
+            
+            // 로컬스토리지 저장
+            localStorage.setItem('ar_ecu_positions_v2', JSON.stringify(ecuData));
+            
+            // UI 업데이트
+            updateHeaderNodeCount();
+            renderEcuList();
+            renderEcuPins();
+            
+            closeAddEcuModal();
+            
+            alert(`제어기 '${id}'가 성공적으로 추가되었습니다.\n화면 정중앙(50%, 50%)에 핀이 생성되었으니, '위치 세팅' 모드(비밀번호: 0000)를 해제한 뒤 드래그하여 정확한 위치에 올려놓아 주세요.`);
+        }
+
+        /* 
+         * [로직] 제어기 DTC 목록 추가 및 삭제 플로팅 팝업 제어 
+         */
+        function openDtcManager(nodeId, x, y) {
+            const popup = document.getElementById('dtcManagerPopup');
+            popup.querySelector('#dtcPopupTitle span').innerText = `${nodeId} DTC 목록`;
+            
+            // 마우스 클릭 위치에 배치
+            popup.style.left = `${x + 10}px`;
+            popup.style.top = `${y + 10}px`;
+            popup.classList.remove('hidden');
+            
+            // 등록 버튼 이벤트 등록
+            document.getElementById('addDtcBtn').onclick = () => {
+                const input = document.getElementById('newDtcInput');
+                const code = input.value.trim().toUpperCase();
+                if (code) {
+                    addDtc(nodeId, code);
+                    input.value = '';
+                }
+            };
+            
+            // Enter 키 이벤트 등록
+            document.getElementById('newDtcInput').onkeydown = (e) => {
+                if (e.key === 'Enter') {
+                    const code = e.target.value.trim().toUpperCase();
+                    if (code) {
+                        addDtc(nodeId, code);
+                        e.target.value = '';
+                    }
+                }
+            };
+            
+            renderDtcList(nodeId);
+        }
+
+        function renderDtcList(nodeId) {
+            const node = ecuData.find(n => n.id === nodeId);
+            const listWrap = document.getElementById('dtcList');
+            listWrap.innerHTML = '';
+            
+            if (!node.dtcs) node.dtcs = [];
+            
+            if (node.dtcs.length === 0) {
+                listWrap.innerHTML = '<li class="text-slate-500 text-center py-2 italic text-[10px]">등록된 DTC 없음</li>';
+                return;
+            }
+            
+            node.dtcs.forEach((code, index) => {
+                const li = document.createElement('li');
+                li.className = "flex items-center justify-between bg-slate-900/60 border border-slate-800/80 px-2.5 py-1.5 rounded text-xs";
+                li.innerHTML = `
+                    <span class="font-mono text-cyan-400 font-bold">${code}</span>
+                    <button onclick="deleteDtc('${nodeId}', ${index})" class="text-rose-500 hover:text-rose-400 font-bold transition text-sm">&times;</button>
+                `;
+                listWrap.appendChild(li);
+            });
+        }
+
+        function addDtc(nodeId, code) {
+            const node = ecuData.find(n => n.id === nodeId);
+            if (!node.dtcs) node.dtcs = [];
+            
+            if (node.dtcs.includes(code)) {
+                alert("이미 등록된 DTC 코드입니다.");
+                return;
+            }
+            
+            node.dtcs.push(code);
+            
+            // 로컬스토리지 저장 및 화면 갱신
+            localStorage.setItem('ar_ecu_positions_v2', JSON.stringify(ecuData));
+            renderDtcList(nodeId);
+            renderEcuList();
+            renderEcuPins();
+        }
+
+        function deleteDtc(nodeId, index) {
+            const node = ecuData.find(n => n.id === nodeId);
+            const code = node.dtcs[index];
+            if (confirm(`${code} DTC 코드를 삭제하시겠습니까?`)) {
+                node.dtcs.splice(index, 1);
+                
+                // 로컬스토리지 저장 및 화면 갱신
+                localStorage.setItem('ar_ecu_positions_v2', JSON.stringify(ecuData));
+                renderDtcList(nodeId);
+                renderEcuList();
+                renderEcuPins();
+            }
+        }
+
+        function closeDtcManager() {
+            document.getElementById('dtcManagerPopup').classList.add('hidden');
+        }
+
+        // 바깥 클릭 시 DTC 매니저 팝업 자동 닫기
+        window.addEventListener('mousedown', (e) => {
+            const popup = document.getElementById('dtcManagerPopup');
+            if (popup && !popup.classList.contains('hidden')) {
+                // 클릭 대상이 팝업 내부도 아니고, 노드 핀도 아닐 때만 닫음
+                if (!popup.contains(e.target) && !e.target.closest('[data-id]')) {
+                    closeDtcManager();
+                }
+            }
+        });
+
+        /* 
+         * [로직] 제어기 삭제 기능 (deleteSelectedEcu)
+         */
+        function deleteSelectedEcu() {
+            if (!selectedEcuId) return;
+            const node = ecuData.find(n => n.id === selectedEcuId);
+            if (!node) return;
+            
+            if (confirm(`제어기 '${selectedEcuId}' (${node.name})를 완전히 삭제하시겠습니까?\n이 제어기와 연결된 다른 모든 통신선도 자동으로 해제됩니다.`)) {
+                // 1. 링크 관계 해제 (다른 노드의 links 배열에서 이 ID 삭제)
+                ecuData.forEach(otherNode => {
+                    if (otherNode.links && otherNode.links.includes(selectedEcuId)) {
+                        otherNode.links = otherNode.links.filter(link => link !== selectedEcuId);
+                    }
+                });
+                
+                // 2. ecuData에서 삭제
+                ecuData = ecuData.filter(n => n.id !== selectedEcuId);
+                
+                // 3. 로컬스토리지 저장
+                localStorage.setItem('ar_ecu_positions_v2', JSON.stringify(ecuData));
+                
+                // 4. UI 및 상태 초기화
+                selectedEcuId = null;
+                
+                // 디테일 패널 비우기
+                document.getElementById('detailPanelEmpty').classList.remove('hidden');
+                document.getElementById('detailPanelContent').classList.add('hidden');
+                
+                updateHeaderNodeCount();
+                renderEcuList();
+                renderEcuPins();
+                
+                alert("제어기가 삭제되었습니다.");
+            }
+        }
+
+        /* 
+         * [로직] 제어기 수정 관련 모달 및 기능 제어 
+         */
+        function openEditEcuModal() {
+            if (!selectedEcuId) return;
+            const node = ecuData.find(n => n.id === selectedEcuId);
+            if (!node) return;
+            
+            const modal = document.getElementById('editEcuModal');
+            const container = document.getElementById('editEcuLinksContainer');
+            container.innerHTML = '';
+            
+            // 본인을 제외한 기존 제어기 목록을 가나다순 정렬하여 체크박스로 제공
+            const sortedNodes = [...ecuData]
+                .filter(n => n.id !== selectedEcuId)
+                .sort((a, b) => a.id.localeCompare(b.id));
+            
+            sortedNodes.forEach(otherNode => {
+                const isLinked = node.links && node.links.includes(otherNode.id);
+                const div = document.createElement('div');
+                div.className = 'flex items-center space-x-2 p-1 hover:bg-slate-700/30 rounded';
+                div.innerHTML = `
+                    <input type="checkbox" id="edit-link-chk-${otherNode.id}" value="${otherNode.id}" ${isLinked ? 'checked' : ''} class="accent-cyan-500 rounded border-slate-600 bg-slate-800">
+                    <label for="edit-link-chk-${otherNode.id}" class="text-slate-350 cursor-pointer select-none truncate">${otherNode.id}</label>
+                `;
+                container.appendChild(div);
+            });
+            
+            // 기존 데이터 대입
+            document.getElementById('editEcuId').value = node.id;
+            document.getElementById('editEcuName').value = node.name;
+            document.getElementById('editEcuDesc').value = node.desc || '';
+            document.getElementById('editEcuDomain').value = node.domain;
+            
+            modal.classList.remove('hidden');
+        }
+
+        function closeEditEcuModal() {
+            document.getElementById('editEcuModal').classList.add('hidden');
+        }
+
+        function submitEditEcu() {
+            const id = document.getElementById('editEcuId').value;
+            const name = document.getElementById('editEcuName').value.trim();
+            const desc = document.getElementById('editEcuDesc').value.trim();
+            const domain = document.getElementById('editEcuDomain').value;
+            
+            if (!name) {
+                alert("제어기 명칭을 입력해 주세요.");
+                return;
+            }
+            
+            const node = ecuData.find(n => n.id === id);
+            if (!node) return;
+            
+            // 새로 선택된 링크 수집
+            const newLinks = [];
+            const checkboxes = document.querySelectorAll('#editEcuLinksContainer input[type="checkbox"]:checked');
+            checkboxes.forEach(chk => {
+                newLinks.push(chk.value);
+            });
+            
+            // 양방향 링크 삭제 처리 (체크 해제된 노드에서 본인 삭제)
+            const oldLinks = node.links || [];
+            const unlinkedTargets = oldLinks.filter(oldTarget => !newLinks.includes(oldTarget));
+            unlinkedTargets.forEach(targetId => {
+                const targetNode = ecuData.find(n => n.id === targetId);
+                if (targetNode && targetNode.links && targetNode.links.includes(id)) {
+                    targetNode.links = targetNode.links.filter(link => link !== id);
+                }
+            });
+            
+            // 양방향 링크 추가 처리 (새로 체크된 노드에 본인 추가)
+            const newlyLinkedTargets = newLinks.filter(newTarget => !oldLinks.includes(newTarget));
+            newlyLinkedTargets.forEach(targetId => {
+                const targetNode = ecuData.find(n => n.id === targetId);
+                if (targetNode) {
+                    if (!targetNode.links) targetNode.links = [];
+                    if (!targetNode.links.includes(id)) {
+                        targetNode.links.push(id);
+                    }
+                }
+            });
+            
+            // 값 갱신
+            node.name = name;
+            node.desc = desc;
+            node.domain = domain;
+            node.links = newLinks;
+            
+            // 로컬스토리지 저장
+            localStorage.setItem('ar_ecu_positions_v2', JSON.stringify(ecuData));
+            
+            // UI 및 디테일 새로고침
+            renderEcuList();
+            renderEcuPins();
+            selectECU(id); 
+            
+            closeEditEcuModal();
+            
+            alert(`제어기 '${id}' 정보가 수정되었습니다.`);
+        }
+
+    </script>
+</body>
+</html>
