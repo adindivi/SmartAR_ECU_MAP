@@ -181,66 +181,14 @@
             <!-- 차량 도면(SVG) 래퍼 컨테이너: 이 영역의 폭/높이를 기준으로 % 좌표가 계산됨 -->
             <div id="vehicleSvgWrapper" class="relative w-full max-w-4xl h-full max-h-[85vh] flex items-center justify-center transition-all duration-300">
                 
-                <!-- 차량 도면 SVG 1: 탑뷰 (Top View) -->
-                <svg id="svgTopView" class="w-full h-full text-cyan-500/15 transition-opacity" viewBox="0 0 800 450" preserveAspectRatio="xMidYMid meet" fill="none" stroke="currentColor">
-                    <!-- PBV Outer Boxy Body -->
-                    <rect x="120" y="80" width="560" height="290" rx="30" stroke-width="1.5" />
-                    <path stroke-width="1" d="M 150 80 L 150 370 M 650 80 L 650 370" stroke-dasharray="4,4" />
-                    
-                    <!-- Skateboard Chassis Battery Pack (Center) -->
-                    <rect x="240" y="110" width="320" height="230" rx="10" fill="rgba(6,182,212,0.02)" stroke-width="1.2" stroke-dasharray="2,2" />
-                    <path d="M 320 110 L 320 340 M 400 110 L 400 340 M 480 110 L 480 340" stroke-width="0.8" stroke-dasharray="4,4" />
-                    
-                    <!-- Wheels at 4 corners -->
-                    <rect x="170" y="55" width="80" height="35" rx="6" fill="rgba(6,182,212,0.05)" stroke-width="1.5"/>
-                    <rect x="170" y="360" width="80" height="35" rx="6" fill="rgba(6,182,212,0.05)" stroke-width="1.5"/>
-                    <rect x="550" y="55" width="80" height="35" rx="6" fill="rgba(6,182,212,0.05)" stroke-width="1.5"/>
-                    <rect x="550" y="360" width="80" height="35" rx="6" fill="rgba(6,182,212,0.05)" stroke-width="1.5"/>
-                    
-                    <!-- Front & Rear LED Bars -->
-                    <path d="M 120 150 C 120 225, 120 225, 120 300" stroke-width="3" stroke="#06b6d4" />
-                    <path d="M 680 160 L 680 290" stroke-width="3" stroke="#f43f5e" />
-                </svg>
+                <!-- 차량 도면 1: 탑뷰 (Top View Image) -->
+                <img id="svgTopView" src="car_image/Top_view.png" class="w-full h-full object-contain pointer-events-none transition-opacity filter blur-[4px] opacity-20" />
 
-                <!-- 차량 도면 SVG 2: 측면뷰 (Side View) -->
-                <svg id="svgSideView" class="hidden w-full h-full text-cyan-500/15 transition-opacity" viewBox="0 0 800 450" preserveAspectRatio="xMidYMid meet" fill="none" stroke="currentColor">
-                    <!-- Boxy Shuttle Body -->
-                    <path stroke-width="1.5" d="M 100 290 L 120 200 C 130 150, 160 100, 220 100 L 660 100 C 680 100, 690 110, 690 130 L 690 290 Z" />
-                    
-                    <!-- Large Windows -->
-                    <path stroke-width="1" fill="rgba(6,182,212,0.02)" d="M 220 115 L 670 115 L 670 200 L 220 200 Z" />
-                    <path stroke-width="1" fill="rgba(6,182,212,0.02)" d="M 135 200 C 145 160, 175 125, 205 125 L 205 200 Z" />
-                    
-                    <!-- Sliding Door Outline -->
-                    <rect x="250" y="115" width="160" height="175" stroke-width="1" stroke-dasharray="3,3" />
-                    <rect x="430" y="115" width="160" height="175" stroke-width="1" stroke-dasharray="3,3" />
-                    
-                    <!-- Wheels -->
-                    <circle cx="210" cy="290" r="45" stroke-width="1.5" fill="rgba(6,182,212,0.03)"/>
-                    <circle cx="210" cy="290" r="25" stroke-width="1" stroke-dasharray="4,4"/>
-                    <circle cx="580" cy="290" r="45" stroke-width="1.5" fill="rgba(6,182,212,0.03)"/>
-                    <circle cx="580" cy="290" r="25" stroke-width="1" stroke-dasharray="4,4"/>
-                </svg>
+                <!-- 차량 도면 2: 측면뷰 (Side View Image) -->
+                <img id="svgSideView" src="car_image/side_view.png" class="hidden w-full h-full object-contain pointer-events-none transition-opacity filter blur-[4px] opacity-20" />
 
-                <!-- 차량 도면 SVG 3: 전방뷰 (Front View) -->
-                <svg id="svgFrontView" class="hidden w-full h-full text-cyan-500/15 transition-opacity" viewBox="0 0 800 450" preserveAspectRatio="xMidYMid meet" fill="none" stroke="currentColor">
-                    <!-- Tall Boxy Body -->
-                    <path stroke-width="1.5" d="M 180 340 L 180 150 C 180 120, 220 100, 260 100 L 540 100 C 580 100, 620 120, 620 150 L 620 340 Z" />
-                    
-                    <!-- Windshield -->
-                    <path stroke-width="1" fill="rgba(6,182,212,0.02)" d="M 195 120 L 605 120 L 605 230 L 195 230 Z" />
-                    
-                    <!-- Futuristic Horizontal Lightbar -->
-                    <path d="M 180 260 L 620 260" stroke-width="3" stroke="#06b6d4" />
-                    
-                    <!-- Bumper & Grid details -->
-                    <rect x="250" y="290" width="300" height="40" rx="5" fill="rgba(6,182,212,0.04)" stroke-width="1" />
-                    <path d="M 280 290 L 280 330 M 340 290 L 340 330 M 400 290 L 400 330 M 460 290 L 460 330 M 520 290 L 520 330" stroke-width="0.8" stroke-dasharray="2,2" />
-                    
-                    <!-- Wheels showing at bottom -->
-                    <rect x="145" y="270" width="35" height="70" rx="5" fill="rgba(6,182,212,0.05)" stroke-width="1.2"/>
-                    <rect x="620" y="270" width="35" height="70" rx="5" fill="rgba(6,182,212,0.05)" stroke-width="1.2"/>
-                </svg>
+                <!-- 차량 도면 3: 전방뷰 (Front View Image) -->
+                <img id="svgFrontView" src="car_image/Front_view.png" class="hidden w-full h-full object-contain pointer-events-none transition-opacity filter blur-[4px] opacity-20" />
 
                 <!-- 캔버스 위 통신 연결선(SVG path/line)을 그리기 위한 레이어 -->
                 <svg id="svgNetworkConnections" class="absolute top-0 left-0 w-full h-full pointer-events-none z-10"></svg>
