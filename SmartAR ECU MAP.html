@@ -158,14 +158,15 @@
             <!-- 2. 도메인(기능군) 카테고리 필터 버튼 그룹 -->
             <div class="p-3 border-b border-slate-800">
                 <div class="text-[10px] text-slate-500 font-bold mb-2">DOMAIN FILTER (도메인 필터링)</div>
-                <div class="grid grid-cols-3 gap-1 text-[9px] font-mono">
+                <div class="grid grid-cols-4 gap-1 text-[9px] font-mono">
                     <button onclick="filterByDomain('ALL')" id="filter-ALL" class="py-1 rounded bg-slate-700 text-white font-bold border border-slate-500 transition">ALL</button>
-                    <button onclick="filterByDomain('POWERTRAIN')" id="filter-POWERTRAIN" class="py-1 rounded bg-slate-900 text-slate-400 border border-slate-800 hover:border-cyan-500 transition">PT (파워트레인)</button>
-                    <button onclick="filterByDomain('CHASSIS')" id="filter-CHASSIS" class="py-1 rounded bg-slate-900 text-slate-400 border border-slate-800 hover:border-emerald-500 transition">CHASSIS (섀시)</button>
+                    <button onclick="filterByDomain('POWERTRAIN')" id="filter-POWERTRAIN" class="py-1 rounded bg-slate-900 text-slate-400 border border-slate-800 hover:border-cyan-500 transition">PT (엔진)</button>
+                    <button onclick="filterByDomain('CHASSIS')" id="filter-CHASSIS" class="py-1 rounded bg-slate-900 text-slate-400 border border-slate-800 hover:border-emerald-500 transition">CHASSIS</button>
                     <button onclick="filterByDomain('ADAS')" id="filter-ADAS" class="py-1 rounded bg-slate-900 text-slate-400 border border-slate-800 hover:border-amber-500 transition">ADAS</button>
-                    <button onclick="filterByDomain('BODY')" id="filter-BODY" class="py-1 rounded bg-slate-900 text-slate-400 border border-slate-800 hover:border-indigo-500 transition">BODY (바디)</button>
-                    <button onclick="filterByDomain('INFOTAINMENT')" id="filter-INFOTAINMENT" class="py-1 rounded bg-slate-900 text-slate-400 border border-slate-800 hover:border-pink-500 transition">INFO (인포)</button>
-                    <button onclick="filterByDomain('NETWORK')" id="filter-NETWORK" class="py-1 rounded bg-slate-900 text-slate-400 border border-slate-800 hover:border-violet-500 transition">NET (네트)</button>
+                    <button onclick="filterByDomain('BODY')" id="filter-BODY" class="py-1 rounded bg-slate-900 text-slate-400 border border-slate-800 hover:border-indigo-500 transition">BODY</button>
+                    <button onclick="filterByDomain('INFOTAINMENT')" id="filter-INFOTAINMENT" class="py-1 rounded bg-slate-900 text-slate-400 border border-slate-800 hover:border-pink-500 transition">INFO</button>
+                    <button onclick="filterByDomain('NETWORK')" id="filter-NETWORK" class="py-1 rounded bg-slate-900 text-slate-400 border border-slate-800 hover:border-violet-500 transition">NET</button>
+                    <button onclick="filterByDomain('CONNECTOR')" id="filter-CONNECTOR" class="py-1 rounded bg-slate-900 text-slate-400 border border-slate-800 hover:border-amber-500 transition">CON (커넥터)</button>
                 </div>
             </div>
 
@@ -207,7 +208,7 @@
             <div class="px-5 py-4 border-b border-slate-800 flex items-center justify-between">
                 <div class="flex items-center space-x-2">
                     <i class="fa-solid fa-microchip text-cyan-400 text-sm"></i>
-                    <h2 class="text-sm font-bold text-slate-100">제어기 상세 모니터링</h2>
+                    <h2 id="detailPanelHeaderTitle" class="text-sm font-bold text-slate-100">제어기 상세 모니터링</h2>
                 </div>
                 <!-- 소속 도메인 뱃지 -->
                 <span id="detailDomainBadge" class="px-2.5 py-0.5 rounded text-[10px] font-mono border bg-opacity-10 uppercase tracking-wider hidden">
@@ -244,7 +245,7 @@
 
                 <!-- 2. 제어기 상세 정보 및 실물 사진 -->
                 <div class="mb-6">
-                    <h3 class="text-[13px] font-semibold text-slate-400 mb-3">제어기 상세</h3>
+                    <h3 id="detailEcuSectionTitle" class="text-[13px] font-semibold text-slate-400 mb-3">제어기 상세</h3>
                     <div class="space-y-4">
                         <!-- 작동 전압 카드 -->
                         <div class="bg-slate-900/60 rounded-xl p-4 border border-slate-700/50 flex items-center justify-between">
@@ -281,7 +282,7 @@
 
                 <!-- 3. 연결된 제어기 네트워크 버튼 목록 -->
                 <div>
-                    <h3 class="text-[13px] font-semibold text-slate-400 mb-3">연결된 제어기 네트워크</h3>
+                    <h3 id="detailNetworkSectionTitle" class="text-[13px] font-semibold text-slate-400 mb-3">연결된 제어기 네트워크</h3>
                     <div id="detailConnectedList" class="flex flex-wrap gap-2">
                         <!-- 동적으로 버튼 생성 -->
                     </div>
@@ -326,10 +327,19 @@
             </h3>
             
             <div class="space-y-4 text-xs">
+                <!-- 노드 종류 -->
+                <div>
+                    <label class="text-slate-400 block mb-1.5 font-semibold">노드 종류 (Type)</label>
+                    <select id="newEcuType" onchange="toggleAddModalTypeFields()" class="w-full bg-slate-900/60 border border-slate-700/80 rounded-xl p-2.5 text-white focus:outline-none focus:border-cyan-500/80 focus:ring-1 focus:ring-cyan-500/30 transition-all">
+                        <option value="ecu">제어기 (ECU)</option>
+                        <option value="connector">커넥터 (Connector)</option>
+                    </select>
+                </div>
+
                 <!-- 제어기 ID -->
                 <div>
                     <label class="text-slate-400 block mb-1.5 font-semibold">제어기 ID (영문 약어, 예: MCU2)</label>
-                    <input type="text" id="newEcuId" placeholder="예: MCU2" class="w-full bg-slate-900/60 border border-slate-700/80 rounded-xl p-2.5 text-white placeholder-slate-600 focus:outline-none focus:border-cyan-500/80 focus:ring-1 focus:ring-cyan-500/30 transition-all uppercase font-mono">
+                    <input type="text" id="newEcuId" placeholder="예: MCU2" class="w-full bg-slate-900/60 border border-slate-700/80 rounded-xl p-2.5 text-white placeholder-slate-650 focus:outline-none focus:border-cyan-500/80 focus:ring-1 focus:ring-cyan-500/30 transition-all uppercase font-mono">
                 </div>
                 
                 <!-- 제어기 명칭 -->
@@ -384,6 +394,12 @@
             </h3>
             
             <div class="space-y-4 text-xs">
+                <!-- 노드 종류 (수정 불가) -->
+                <div>
+                    <label class="text-slate-500 block mb-1.5 font-semibold">노드 종류 (Type - 수정 불가)</label>
+                    <input type="text" id="editEcuType" disabled class="w-full bg-slate-900/40 border border-slate-800 rounded-xl p-2.5 text-slate-400 font-mono uppercase cursor-not-allowed">
+                </div>
+
                 <!-- 제어기 ID (수정 불가) -->
                 <div>
                     <label class="text-slate-500 block mb-1.5 font-semibold">제어기 ID (수정 불가)</label>
@@ -561,6 +577,7 @@
                 case 'BODY': return '#6366f1';       // Indigo (남색)
                 case 'INFOTAINMENT': return '#ec4899';// Pink (핑크)
                 case 'NETWORK': return '#8b5cf6';    // Violet (보라)
+                case 'CONNECTOR': return '#f97316';  // Orange (커넥터 주황)
                 default: return '#94a3b8';           // Slate (기본 회색)
             }
         }
@@ -653,14 +670,27 @@
                 const pulseClass = (node.status === 'fault') ? 'pulse-active' : '';
 
                 // 노드의 내부 HTML (작은 원형 박스 및 호버 툴팁)
-                pin.innerHTML = `
-                    <div class="w-6 h-6 rounded-full border-[2.5px] bg-slate-900 flex items-center justify-center font-mono text-[9px] font-bold ${pulseClass}" style="color: ${dColor}; ${borderStyle}">
-                        ${node.id.substring(0, 3)}
-                    </div>
-                    <div class="mt-1 px-1.5 py-0.5 rounded bg-black/80 border border-slate-700 text-[9px] font-mono text-slate-300 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
-                        ${node.id}
-                    </div>
-                `;
+                const isConnector = node.type === 'connector';
+                if (isConnector) {
+                    const connShadow = isSelected ? `box-shadow: 0 0 12px ${dColor}; border-color: #fff;` : `border-color: ${dColor};`;
+                    pin.innerHTML = `
+                        <div class="w-4 h-4 rotate-45 border-[2px] bg-slate-950 flex items-center justify-center ${pulseClass}" style="${connShadow}">
+                            <i class="fa-solid fa-plug text-[8px] -rotate-45" style="color: ${dColor}"></i>
+                        </div>
+                        <div class="mt-2 px-1.5 py-0.5 rounded bg-black/80 border border-slate-700 text-[9px] font-mono text-slate-300 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
+                            ${node.id} (${node.name})
+                        </div>
+                    `;
+                } else {
+                    pin.innerHTML = `
+                        <div class="w-6 h-6 rounded-full border-[2.5px] bg-slate-900 flex items-center justify-center font-mono text-[9px] font-bold ${pulseClass}" style="color: ${dColor}; ${borderStyle}">
+                            ${node.id.substring(0, 3)}
+                        </div>
+                        <div class="mt-1 px-1.5 py-0.5 rounded bg-black/80 border border-slate-700 text-[9px] font-mono text-slate-300 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
+                            ${node.id}
+                        </div>
+                    `;
+                }
 
                 // 마우스 클릭(mousedown) 이벤트 바인딩 (세팅 모드가 아닐 때만 상세 정보 오픈)
                 pin.onmousedown = (e) => {
@@ -881,6 +911,11 @@
             document.getElementById('detailPanelEmpty').classList.add('hidden');
             document.getElementById('detailPanelContent').classList.remove('hidden');
 
+            const isConn = node.type === 'connector';
+            document.getElementById('detailPanelHeaderTitle').innerText = isConn ? '커넥터 상세 모니터링' : '제어기 상세 모니터링';
+            document.getElementById('detailEcuSectionTitle').innerText = isConn ? '커넥터 상세' : '제어기 상세';
+            document.getElementById('detailNetworkSectionTitle').innerText = isConn ? '연결된 노드 네트워크' : '연결된 제어기 네트워크';
+
             // 텍스트 및 기본 정보 매핑
             document.getElementById('detailEcuId').innerText = node.id;
             document.getElementById('detailEcuId').style.color = getDomainColor(node.domain);
@@ -1051,22 +1086,26 @@
                     // 1. 기본 배열에 있는 제어기 좌표 업데이트
                     ecuData = DEFAULT_ECU_DATA.map(node => {
                         const sNode = parsed.find(p => p.id === node.id);
-                        if (sNode && sNode.coords) return { ...node, coords: sNode.coords };
-                        return node;
+                        const merged = sNode && sNode.coords ? { ...node, coords: sNode.coords } : node;
+                        if (!merged.type) merged.type = 'ecu';
+                        return merged;
                     });
                     
                     // 2. 기본 배열에 없는 새 제어기(사용자가 추가한 것)들도 ecuData에 덧붙이기
                     parsed.forEach(pNode => {
                         if (!ecuData.some(n => n.id === pNode.id)) {
+                            if (!pNode.type) pNode.type = 'ecu';
                             ecuData.push(pNode);
                         }
                     });
                 } catch(e) {
                     // JSON 파싱 실패 시 기본 데이터 로드
                     ecuData = JSON.parse(JSON.stringify(DEFAULT_ECU_DATA));
+                    ecuData.forEach(n => { if (!n.type) n.type = 'ecu'; });
                 }
             } else {
                 ecuData = JSON.parse(JSON.stringify(DEFAULT_ECU_DATA));
+                ecuData.forEach(n => { if (!n.type) n.type = 'ecu'; });
             }
         }
 
@@ -1105,12 +1144,34 @@
             });
             
             // 입력 폼 필드 리셋
+            document.getElementById('newEcuType').value = 'ecu';
+            toggleAddModalTypeFields();
             document.getElementById('newEcuId').value = '';
             document.getElementById('newEcuName').value = '';
             document.getElementById('newEcuDesc').value = '';
             document.getElementById('newEcuDomain').value = 'POWERTRAIN';
             
             modal.classList.remove('hidden');
+        }
+
+        function toggleAddModalTypeFields() {
+            const type = document.getElementById('newEcuType').value;
+            const domainSelect = document.getElementById('newEcuDomain');
+            if (type === 'connector') {
+                if (![...domainSelect.options].some(o => o.value === 'CONNECTOR')) {
+                    const opt = document.createElement('option');
+                    opt.value = 'CONNECTOR';
+                    opt.text = 'CONNECTOR (커넥터 배선)';
+                    domainSelect.add(opt);
+                }
+                domainSelect.value = 'CONNECTOR';
+                domainSelect.disabled = true;
+            } else {
+                domainSelect.disabled = false;
+                if (domainSelect.value === 'CONNECTOR') {
+                    domainSelect.value = 'POWERTRAIN';
+                }
+            }
         }
 
         function closeAddEcuModal() {
@@ -1125,28 +1186,29 @@
         }
 
         function submitNewEcu() {
+            const type = document.getElementById('newEcuType').value;
             const id = document.getElementById('newEcuId').value.trim().toUpperCase();
             const name = document.getElementById('newEcuName').value.trim();
             const desc = document.getElementById('newEcuDesc').value.trim();
-            const domain = document.getElementById('newEcuDomain').value;
+            const domain = type === 'connector' ? 'CONNECTOR' : document.getElementById('newEcuDomain').value;
             
             if (!id) {
-                alert("제어기 ID를 입력해 주세요.");
+                alert("ID를 입력해 주세요.");
                 return;
             }
             
             if (!/^[A-Z0-9_-]+$/.test(id)) {
-                alert("제어기 ID는 영문 대문자, 숫자, 하이픈(-), 언더바(_)만 사용 가능합니다.");
+                alert("ID는 영문 대문자, 숫자, 하이픈(-), 언더바(_)만 사용 가능합니다.");
                 return;
             }
             
             if (ecuData.some(node => node.id === id)) {
-                alert("이미 존재하는 제어기 ID입니다.");
+                alert("이미 존재하는 ID입니다.");
                 return;
             }
             
             if (!name) {
-                alert("제어기 명칭을 입력해 주세요.");
+                alert("명칭을 입력해 주세요.");
                 return;
             }
             
@@ -1160,6 +1222,7 @@
             // 새 제어기 기본 좌표(50, 50)으로 객체 생성
             const newEcu = {
                 id: id,
+                type: type,
                 name: name,
                 desc: desc,
                 domain: domain,
@@ -1178,8 +1241,11 @@
             // 양방향 링크 관계 설정 (선택된 타겟 제어기들에도 자신을 링크로 추가)
             links.forEach(targetId => {
                 const targetNode = ecuData.find(n => n.id === targetId);
-                if (targetNode && !targetNode.links.includes(id)) {
-                    targetNode.links.push(id);
+                if (targetNode) {
+                    if (!targetNode.links) targetNode.links = [];
+                    if (!targetNode.links.includes(id)) {
+                        targetNode.links.push(id);
+                    }
                 }
             });
             
@@ -1193,7 +1259,8 @@
             
             closeAddEcuModal();
             
-            alert(`제어기 '${id}'가 성공적으로 추가되었습니다.\n화면 정중앙(50%, 50%)에 핀이 생성되었으니, '위치 세팅' 모드(비밀번호: 0000)를 해제한 뒤 드래그하여 정확한 위치에 올려놓아 주세요.`);
+            const nodeTypeName = type === 'connector' ? '커넥터 배선 노드' : '제어기(ECU) 노드';
+            alert(`'${id}' (${nodeTypeName})가 성공적으로 추가되었습니다.\n화면 정중앙(50%, 50%)에 핀이 생성되었으니, '위치 세팅' 모드(비밀번호: 0000)를 해제한 뒤 드래그하여 정확한 위치에 올려놓아 주세요.`);
         }
 
         /* 
@@ -1368,10 +1435,25 @@
             });
             
             // 기존 데이터 대입
+            document.getElementById('editEcuType').value = node.type === 'connector' ? 'CONNECTOR (커넥터)' : 'ECU (제어기)';
             document.getElementById('editEcuId').value = node.id;
             document.getElementById('editEcuName').value = node.name;
             document.getElementById('editEcuDesc').value = node.desc || '';
-            document.getElementById('editEcuDomain').value = node.domain;
+            
+            const domainSelect = document.getElementById('editEcuDomain');
+            if (node.type === 'connector') {
+                if (![...domainSelect.options].some(o => o.value === 'CONNECTOR')) {
+                    const opt = document.createElement('option');
+                    opt.value = 'CONNECTOR';
+                    opt.text = 'CONNECTOR (커넥터 배선)';
+                    domainSelect.add(opt);
+                }
+                domainSelect.value = 'CONNECTOR';
+                domainSelect.disabled = true;
+            } else {
+                domainSelect.disabled = false;
+                domainSelect.value = node.domain;
+            }
             
             modal.classList.remove('hidden');
         }
@@ -1384,15 +1466,16 @@
             const id = document.getElementById('editEcuId').value;
             const name = document.getElementById('editEcuName').value.trim();
             const desc = document.getElementById('editEcuDesc').value.trim();
-            const domain = document.getElementById('editEcuDomain').value;
             
             if (!name) {
-                alert("제어기 명칭을 입력해 주세요.");
+                alert("명칭을 입력해 주세요.");
                 return;
             }
             
             const node = ecuData.find(n => n.id === id);
             if (!node) return;
+            
+            const domain = node.type === 'connector' ? 'CONNECTOR' : document.getElementById('editEcuDomain').value;
             
             // 새로 선택된 링크 수집
             const newLinks = [];
@@ -1439,7 +1522,8 @@
             
             closeEditEcuModal();
             
-            alert(`제어기 '${id}' 정보가 수정되었습니다.`);
+            const label = node.type === 'connector' ? '커넥터 배선' : '제어기(ECU)';
+            alert(`'${id}' (${label}) 정보가 수정되었습니다.`);
         }
 
     </script>
