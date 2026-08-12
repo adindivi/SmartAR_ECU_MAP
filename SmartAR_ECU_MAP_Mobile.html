@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Smart AR ECU MAP - Apple Style</title>
+    <title>Smart AR ECU MAP - Mobile Optimized</title>
     
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -14,9 +14,20 @@
     <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.1.4/dist/mindar-image-aframe.prod.js"></script>
     <script src="https://unpkg.com/aframe-look-at-component@0.8.0/dist/aframe-look-at-component.min.js"></script>
     
-    <!-- 모바일 크롬 개발자 콘솔 에러 로그 디버거 (일시적 주입) -->
+    <!-- 모바일 크롬 개발자 콘솔 에러 로그 디버거 (DEVELOPER_MODE 변수로 온/오프 가능) -->
     <script src="https://cdn.jsdelivr.net/npm/eruda"></script>
-    <script>eruda.init();</script>
+    <script>
+        // Android WebView 디버깅 또는 모바일 브라우저 개발용 Eruda 콘솔 설정
+        const DEVELOPER_MODE = true; // 배포(Release) 시 false로 설정하면 eruda 디버거가 숨김 처리됩니다.
+        if (DEVELOPER_MODE) {
+            eruda.init();
+        } else {
+            window.addEventListener('DOMContentLoaded', () => {
+                const el = document.getElementById('eruda');
+                if (el) el.style.display = 'none';
+            });
+        }
+    </script>
     
     <!-- FontAwesome 아이콘 CDN -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -50,7 +61,7 @@
     </script>
     
     <style>
-        /* 모바일 사파리 등 스크롤 튐 방지 및 뷰포트 고정 */
+        /* 모바일 사파리 및 안드로이드 웹뷰 스크롤 튐 방지 및 뷰포트 고정 */
         html, body {
             overflow: hidden;
             position: fixed;
@@ -59,12 +70,18 @@
             -webkit-user-select: none;
             user-select: none;
             background-color: #000000;
+            /* 바운스 스크롤 방지 */
+            overscroll-behavior: none;
+            touch-action: none;
         }
 
-        /* 드래그 가능 핀의 바디 공통 스타일 */
+        /* 드래그 가능 핀의 바디 공통 스타일 (will-change 및 3D 가속으로 모바일 성능 극대화) */
         .pin-body {
             will-change: transform, left, top;
+            transform: translate3d(0,0,0);
             transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.12s cubic-bezier(0.2, 0, 0, 1);
+            /* 드래그 시 모바일 브라우저의 전체 화면 스크롤링 간섭 완전 차단 */
+            touch-action: none; 
         }
 
         /* 텍스트 줄바꿈 기형화 방지 */
@@ -88,9 +105,10 @@
             transform: rotate(180deg);
         }
 
-        /* 모바일 바텀시트 / 드로어 슬라이딩 연출 */
+        /* 모바일 바텀시트 / 드로어 슬라이딩 연출 (will-change transform 가속 탑재) */
         aside {
             transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            will-change: transform;
         }
         @media (max-width: 767px) {
             /* 좌측 목록 드로어 (왼쪽 -> 오른쪽) */
@@ -101,7 +119,7 @@
                 bottom: 0;
                 width: 280px;
                 z-index: 45;
-                transform: translateX(-100%);
+                transform: translate3d(-100%, 0, 0);
             }
             /* 우측 상세 드로어 (바텀 -> 탑 슬라이드 시트 구조로 전환) */
             aside.w-\\[340px\\] {
@@ -112,7 +130,7 @@
                 width: 100% !important;
                 height: 70vh;
                 z-index: 45;
-                transform: translateY(100%);
+                transform: translate3d(0, 100%, 0);
                 border-top-left-radius: 18px;
                 border-top-right-radius: 18px;
                 border-left-width: 0;
@@ -120,7 +138,7 @@
             }
             /* 활성화 시 오픈 */
             aside.drawer-open {
-                transform: none !important;
+                transform: translate3d(0, 0, 0) !important;
             }
         }
 
@@ -233,7 +251,11 @@
         <div class="flex items-center space-x-3">
             <i class="fa-solid fa-microchip text-appleLink text-xl"></i>
             <div>
-                <h1 class="text-base md:text-lg font-bold text-white tracking-wide">Smart AR ECU MAP <span class="text-[10px] text-white font-mono bg-slate-800 px-2 py-0.5 rounded-full border border-slate-700 ml-1">AR</span></h1>
+                <h1 class="text-base md:text-lg font-bold text-white tracking-wide">
+                    Smart AR ECU MAP 
+                    <span class="text-[10px] text-white font-mono bg-slate-800 px-2 py-0.5 rounded-full border border-slate-700 ml-1">AR App</span>
+                </h1>
+                <p id="nodeCountSubtitle" class="text-[9px] text-appleTextMuted font-mono">Loading Nodes...</p>
             </div>
         </div>
 
@@ -261,9 +283,9 @@
 
             <!-- 시점(View) 전환 버튼들 -->
             <div id="viewControllerGroup" class="bg-slate-900/80 p-1 rounded-full border border-slate-800 flex text-xs">
-                <button id="viewTopBtn" onclick="switchView('top')" class="px-3 py-1 rounded-full bg-slate-800 text-white font-bold shadow transition">TOP (탑뷰)</button>
-                <button id="viewSideBtn" onclick="switchView('side')" class="px-3 py-1 rounded-full text-slate-400 hover:text-white transition">SIDE (측면)</button>
-                <button id="viewFrontBtn" onclick="switchView('front')" class="px-3 py-1 rounded-full text-slate-400 hover:text-white transition">FRONT (전방)</button>
+                <button id="viewTopBtn" onclick="switchView('top')" class="px-3 py-1 rounded-full bg-slate-800 text-white font-bold shadow transition">TOP</button>
+                <button id="viewSideBtn" onclick="switchView('side')" class="px-3 py-1 rounded-full text-slate-400 hover:text-white transition">SIDE</button>
+                <button id="viewFrontBtn" onclick="switchView('front')" class="px-3 py-1 rounded-full text-slate-400 hover:text-white transition">FRONT</button>
             </div>
 
             <!-- 노드 추가 버튼 -->
@@ -279,12 +301,12 @@
             </button>
             
             <!-- [전체 테이블] 일괄 조회 모달 토글 버튼 -->
-            <button onclick="openEcuTableModal()" title="전체 테이블 뷰" class="px-2.5 py-1.5 rounded-full bg-slate-900/40 hover:bg-slate-800 text-slate-450 border border-slate-700 transition">
+            <button onclick="openEcuTableModal()" title="전체 테이블 뷰" class="px-2.5 py-1.5 rounded-full bg-slate-900/40 hover:bg-slate-800 text-slate-400 border border-slate-700 transition">
                 <i class="fa-solid fa-table-list"></i>
             </button>
 
             <!-- 공장 초기화 버튼 -->
-            <button onclick="resetPositions()" title="공장 초기화" class="px-2.5 py-1.5 rounded-full bg-slate-900/40 hover:bg-rose-950/40 text-slate-455 border border-slate-700 hover:border-rose-800 transition">
+            <button onclick="resetPositions()" title="공장 초기화" class="px-2.5 py-1.5 rounded-full bg-slate-900/40 hover:bg-rose-950/40 text-slate-400 border border-slate-700 hover:border-rose-800 transition">
                 <i class="fa-solid fa-rotate-left"></i>
             </button>
         </div>
@@ -315,7 +337,7 @@
                 <div class="relative">
                     <i class="fa-solid fa-magnifying-glass absolute left-2.5 top-2.5 text-xs text-slate-500"></i>
                     <input type="text" id="searchInput" oninput="handleSearch()" placeholder="제어기 검색..." 
-                           class="w-full bg-slate-950 border border-slate-800 rounded-lg pl-8 pr-3 py-1.5 text-xs text-slate-200 placeholder-slate-600 focus:outline-none focus:border-slate-500 transition-colors">
+                           class="w-full bg-slate-950 border border-slate-800 rounded-lg pl-8 pr-3 py-1.5 text-xs text-slate-200 placeholder-slate-650 focus:outline-none focus:border-slate-500 transition-colors">
                 </div>
             </div>
 
@@ -347,14 +369,12 @@
             <!-- Real-Time WebRTC 카메라 백그라운드 레이어 -->
             <video id="arVideo" autoplay playsinline muted class="absolute inset-0 w-full h-full object-cover z-0 hidden"></video>
 
-
             <!-- 2) [전방 전용] Mind-AR / A-Frame 씬 컨테이너 -->
             <div id="arSceneContainerFront" class="absolute inset-0 w-full h-full z-0 hidden">
                 <a-scene id="arSceneFront" mindar-image="imageTargetSrc: ./car_image/logo_targets.mind; autoStart: false; uiLoading: no; uiScanning: no; uiError: no; filterMinCF: 0.0001; filterBeta: 0.0001;" 
                          embedded vr-mode-ui="enabled: false" device-orientation-permission-ui="enabled: false"
                          style="width: 100%; height: 100%; position: absolute;">
                     
-                    <!-- look-at 바인딩 추적을 위해 동일한 id="arCameraFront" 카메라 사용 -->
                     <a-camera id="arCameraFront" position="0 0 0" look-controls="enabled: false"></a-camera>
 
                     <!-- 전방 기아 로고 감지 앵커 (targetIndex: 0 / 전방 정합용) -->
@@ -436,7 +456,7 @@
             <!-- 디테일 내용 -->
             <div id="detailPanelContent" class="p-4 flex-1 overflow-y-auto hidden space-y-3">
                 
-                <!-- 1. 제어기 메인 프로필 박스 (수직 마진 mb-3으로 최적화) -->
+                <!-- 1. 제어기 메인 프로필 박스 -->
                 <div class="rounded-2xl border border-arBorder bg-black/40 p-4 mb-3">
                     <div class="flex items-center justify-between mb-2">
                         <span id="detailEcuId" class="text-[26px] font-bold font-mono text-white">MDPS</span>
@@ -473,7 +493,7 @@
                     </div>
                 </div>
 
-                <!-- 2. 제어기 상세 정보 및 실물 사진 (아코디언, 타이틀 및 마진 mb-3 최적화) -->
+                <!-- 2. 제어기 상세 정보 및 실물 사진 -->
                 <div id="ecuDetailAccordionWrapper" class="border border-arBorder rounded-2xl bg-black/40 overflow-hidden mb-3">
                     <button onclick="toggleAccordion('ecuDetail')" class="w-full px-4 py-2.5 flex items-center justify-between bg-slate-900/40 hover:bg-slate-900/60 transition-colors focus:outline-none">
                         <span id="detailEcuSectionTitle" class="text-[12px] font-bold text-slate-300 uppercase tracking-wider flex items-center">
@@ -503,7 +523,7 @@
                     </div>
                 </div>
 
-                <!-- 3. 연결된 제어기 네트워크 버튼 목록 (아코디언, 타이틀 및 2열 그리드 최적화) -->
+                <!-- 3. 연결된 제어기 네트워크 버튼 목록 -->
                 <div class="border border-arBorder rounded-2xl bg-black/40 overflow-hidden">
                     <button onclick="toggleAccordion('networkDetail')" class="w-full px-4 py-2.5 flex items-center justify-between bg-slate-900/40 hover:bg-slate-900/60 transition-colors focus:outline-none">
                         <span id="detailNetworkSectionTitle" class="text-[12px] font-bold text-slate-300 uppercase tracking-wider flex items-center">
@@ -670,7 +690,7 @@
     <!-- ========================================== -->
     <!-- [DTC 고장코드 단독 매니저] 우클릭 또는 롱터치 팝업 -->
     <!-- ========================================== -->
-    <div id="dtcManagerPopup" class="fixed hidden bg-slate-950/95 border border-slate-800 rounded-2xl w-60 p-4 shadow-2xl z-40 select-none backdrop-blur-md">
+    <div id="dtcManagerPopup" class="fixed hidden bg-slate-950/95 border border-slate-800 rounded-2xl w-60 p-4 shadow-2xl z-45 select-none backdrop-blur-md">
         <div class="flex items-center justify-between pb-2 border-b border-slate-850 mb-2">
             <h4 id="dtcPopupTitle" class="text-[11px] font-bold text-white flex items-center space-x-1.5">
                 <i class="fa-solid fa-triangle-exclamation text-rose-500 animate-pulse text-[10px]"></i>
@@ -787,45 +807,110 @@
             front: { xMin: 20.0, xMax: 80.0, yMin: 15.0, yMax: 80.0 }
         };
 
-        /**
-         * @function mapRange
-         * @description 지정된 입력 범위 내의 수치 값을 출력 타겟 범위의 수치로 선형 사상(Mapping)하고 반올림합니다.
-         *              3D 투영 시 한쪽 뷰포트의 범위 좌표를 다른 뷰포트 범위로 환산할 때 사용됩니다.
-         * @param {number} value - 변환할 원본 수치값
-         * @param {number} inMin - 원본 범위의 최소 한계값
-         * @param {number} inMax - 원본 범위의 최대 한계값
-         * @param {number} outMin - 타겟 범위의 최소 변환값
-         * @param {number} outMax - 타겟 범위의 최대 변환값
-         * @returns {number} 변환 및 소수점 첫째 자리 반올림이 완료된 수치값
-         * @example
-         * // 예제 1: 50을 0~100 범위에서 0~10 범위로 변환 (결과: 5)
-         * mapRange(50, 0, 100, 0, 10);
-         * // 예제 2: 75를 50~100 범위에서 200~400 범위로 변환 (결과: 300)
-         * mapRange(75, 50, 100, 200, 400);
-         * @caution 입력값이 원본 한계 범위를 벗어날 경우, inMin 또는 inMax 범위 내로 클램핑(Clamping) 처리됩니다.
-         */
+        // ==========================================
+        // [안드로이드 코틀린 브릿지 연동 인터페이스 정의]
+        // ==========================================
+        const AndroidHelper = {
+            // AndroidBridge 객체가 전역(네이티브 웹뷰 인터페이스)으로 선언되어 있는지 여부 판단
+            isAndroid: typeof AndroidBridge !== 'undefined',
+
+            saveData: function(data) {
+                const jsonStr = JSON.stringify(data);
+                if (this.isAndroid) {
+                    try {
+                        AndroidBridge.saveData(jsonStr);
+                        console.log("[AndroidBridge] Saved positions successfully.");
+                    } catch (e) {
+                        console.error("[AndroidBridge] Error saving data:", e);
+                    }
+                } else {
+                    localStorage.setItem('ar_ecu_positions_v2', jsonStr);
+                }
+            },
+
+            loadData: function() {
+                if (this.isAndroid) {
+                    try {
+                        const saved = AndroidBridge.loadData();
+                        if (saved) return JSON.parse(saved);
+                    } catch (e) {
+                        console.error("[AndroidBridge] Error loading data:", e);
+                    }
+                }
+                const saved = localStorage.getItem('ar_ecu_positions_v2');
+                return saved ? JSON.parse(saved) : null;
+            },
+
+            onNodeSelected: function(nodeId) {
+                console.log("[AndroidBridge] Node Selected:", nodeId);
+                if (this.isAndroid) {
+                    try {
+                        AndroidBridge.onNodeSelected(nodeId);
+                    } catch (e) {
+                        console.error("[AndroidBridge] Error onNodeSelected:", e);
+                    }
+                }
+            },
+
+            onDtcChanged: function(nodeId, dtcs) {
+                const jsonStr = JSON.stringify(dtcs);
+                console.log(`[AndroidBridge] DTC Changed for ${nodeId}: ${jsonStr}`);
+                if (this.isAndroid) {
+                    try {
+                        AndroidBridge.onDtcChanged(nodeId, jsonStr);
+                    } catch (e) {
+                        console.error("[AndroidBridge] Error onDtcChanged:", e);
+                    }
+                }
+            },
+
+            vibrate: function(ms = 50) {
+                if (this.isAndroid) {
+                    try {
+                        AndroidBridge.vibrate(ms);
+                    } catch (e) {
+                        console.error("[AndroidBridge] Error vibrate:", e);
+                    }
+                } else if (navigator.vibrate) {
+                    navigator.vibrate(ms);
+                }
+            },
+
+            setLandscapeLock: function(lock) {
+                if (this.isAndroid) {
+                    try {
+                        AndroidBridge.setLandscapeLock(lock);
+                    } catch (e) {
+                        console.error("[AndroidBridge] Error setLandscapeLock:", e);
+                    }
+                }
+            },
+
+            showToast: function(message) {
+                if (this.isAndroid) {
+                    try {
+                        AndroidBridge.showToast(message);
+                        return;
+                    } catch (e) {
+                        console.error("[AndroidBridge] Error showToast:", e);
+                    }
+                }
+                showHtmlToast(message);
+            }
+        };
+
+        // Kotlin 네이티브 측에서 파일 처리를 수신하기 위한 전역 콜백 매핑
+        window.onCsvDataReceived = function(csvText) {
+            if (!csvText) return;
+            handleCsvTextParse(csvText);
+        };
+
         function mapRange(value, inMin, inMax, outMin, outMax) {
             const clamped = Math.max(inMin, Math.min(inMax, value));
             const result = outMin + ((clamped - inMin) / (inMax - inMin)) * (outMax - outMin);
             return Math.round(result * 10) / 10;
         }
 
-        /**
-         * @function syncSharedAxes
-         * @description 2.5D 좌표 투영 동기화 함수로, 한 특정 시점(탑/측면/전면)에서 노드를 드래그하여 좌표가 변경되었을 때,
-         *              3차원 상의 축을 공유하는 다른 시점들의 대응 좌표를 실시간 계산하여 상호 업데이트합니다.
-         * @param {Object} node - 위치를 동기화할 대상 제어기/커넥터 노드 객체
-         * @param {string} view - 현재 드래그가 발생한 시점명 ('top', 'side', 'front')
-         * @param {number} x - 현재 드래그된 시점의 X 백분율 좌표 (0 ~ 100)
-         * @param {number} y - 현재 드래그된 시점의 Y 백분율 좌표 (0 ~ 100)
-         * @returns {void}
-         * @example
-         * // 예제 1: BMS 노드의 측면 뷰(side) 드래그 좌표 동기화
-         * syncSharedAxes(bmsNode, 'side', 45, 60);
-         * // 예제 2: ADAS 노드의 탑 뷰(top) 드래그 좌표 동기화
-         * syncSharedAxes(adasNode, 'top', 30, 40);
-         * @caution 차량 바운더리 한계선(VEHICLE_BOUNDS)을 기준으로 선형 사상하기 때문에, 범위 영역이 올바르게 정의되어 있어야 정확하게 투영됩니다.
-         */
         function syncSharedAxes(node, view, x, y) {
             if (!node || !node.coords) return;
             const B = VEHICLE_BOUNDS;
@@ -958,21 +1043,12 @@
             });
         }
 
-        /**
-         * @function handleSearch
-         * @description 제어기 검색바(searchInput)에 입력이 발생할 때마다 실시간으로 검색어(searchQuery)를 갱신하고,
-         *              좌측 제어기 목록 및 중앙 2D 도면상의 핀 노드들을 즉시 필터링하여 재렌더링합니다.
-         * @returns {void}
-         */
         function handleSearch() {
             try {
                 const searchInputElement = document.getElementById('searchInput');
                 if (!searchInputElement) return;
 
-                // 입력받은 검색어를 대문자로 변환하여 전역 검색 변수 갱신
                 searchQuery = searchInputElement.value.trim().toUpperCase();
-
-                // 리스트 및 도면 핀들 실시간 다시 그리기
                 renderEcuList();
                 renderEcuPins();
             } catch (error) {
@@ -980,16 +1056,6 @@
             }
         }
 
-        /**
-         * @function resizeVehicleCanvas
-         * @description 활성화된 차량 도면 이미지의 원본 해상도 종횡비(Aspect Ratio)를 실시간으로 감지하여
-         *              부모 뷰포트(vehicleSvgWrapper)의 물리적 크기를 화면에 꽉 차도록(여백 제외) 동적 조절합니다.
-         *              이를 통해 2.5D 투영 시 투명한 도화지 여백 오차로 인한 핀 정렬 쏠림을 완전 차단합니다.
-         * @returns {void}
-         * @throws {Error} DOM 탐색 실패 또는 경계 사각형 측정 실패 시 예외를 포착하여 안전하게 기록합니다.
-         * @example
-         * resizeVehicleCanvas();
-         */
         function resizeVehicleCanvas() {
             try {
                 const wrapper = document.getElementById('vehicleSvgWrapper');
@@ -1003,7 +1069,6 @@
                 const naturalWidth = activeImage.naturalWidth;
                 const naturalHeight = activeImage.naturalHeight;
                 
-                // 아직 이미지가 로드 전인 경우 온로드 이벤트를 체이닝하고 대기
                 if (!naturalWidth || !naturalHeight) {
                     activeImage.onload = resizeVehicleCanvas;
                     return;
@@ -1032,27 +1097,13 @@
             }
         }
 
-        /**
-         * @function switchView
-         * @description 현재 디스플레이되고 있는 2.5D 투영 시점(TOP, SIDE, FRONT)을 다른 시점으로 전환합니다.
-         *              뷰 컨트롤 버튼의 활성화 테마 스타일을 동적 제어하고, 해당 이미지 뷰 레이어만 토글합니다.
-         * @param {string} viewName - 전환할 신규 시점의 식별자 명칭 ('top', 'side', 'front')
-         * @returns {void}
-         * @example
-         * // 예제 1: 탑 뷰(TOP)로 시점 전환
-         * switchView('top');
-         * // 예제 2: 전방 뷰(FRONT)로 시점 전환
-         * switchView('front');
-         * @caution AR 스캔 모드가 켜진 상태(isArMode === true)에서는 탑 뷰(TOP)로의 전환이 시스템적으로 잠금 제한됩니다.
-         */
         function switchView(viewName) {
             if (isArMode && viewName === 'top') {
-                alert("AR 모드에서는 TOP(탑뷰)를 이용할 수 없습니다. SIDE 또는 FRONT를 선택해 주세요.");
+                AndroidHelper.showToast("AR 모드에서는 TOP(탑뷰)를 이용할 수 없습니다. SIDE 또는 FRONT를 선택해 주세요.");
                 return;
             }
             currentView = viewName;
             
-            // AR 모드 중 시점 변경 시, 측면(SIDE) 뷰가 아닐 경우 타이어 가이드 링 강제 숨김
             const guideRing = document.getElementById('arTireGuideRing');
             if (guideRing) {
                 if (isArMode && !isArAligned && viewName === 'side') {
@@ -1080,20 +1131,13 @@
             renderEcuPins();
         }
 
-        /**
-         * @function renderEcuPins
-         * @description 현재 도메인 필터 및 검색 필터링 조건에 부합하는 제어기/커넥터 노드들을 탐색하여
-         *              2.5D 깊이감(투명도, 흐림 효과, 배율 스케일)을 연산하고 화면 상의 알맞은 백분율 위치에 핀을 렌더링합니다.
-         *              핀 클릭/드래그/우클릭(DTC 관리) 이벤트 수신기를 자동 바인딩합니다.
-         * @returns {void}
-         * @example
-         * // 예제 1: 핀 새로고침 호출
-         * renderEcuPins();
-         * @caution AR 모드가 활성화되어 있으나 위치 매핑 얼라인먼트가 미완료(isArAligned === false) 상태일 경우, 
-         *          핀의 노출을 숨기며 10ms 뒤 통신망 렌더링만 예외 스케줄링 처리합니다.
-         */
+        // 모바일 터치 및 롱터치 타이머 관리를 위한 변수
+        let touchTimer = null;
+        let isLongPress = false;
+        let startTouchX = 0;
+        let startTouchY = 0;
+
         function renderEcuPins() {
-            // 캔버스 크기를 활성화된 이미지의 실제 해상도 비율로 강제 정렬
             resizeVehicleCanvas();
 
             const container = document.getElementById('ecuPinsContainer');
@@ -1171,8 +1215,8 @@
                 if (isConnector) {
                     const connShadow = isSelected ? `box-shadow: 0 0 10px ${domainColor}; border-color: #fff;` : `border-color: ${domainColor};`;
                     nodeBodyMarkup = `
-                        <div class="pin-body w-4 h-4 rotate-45 border-[2px] bg-slate-950 flex items-center justify-center pointer-events-auto cursor-pointer" style="${connShadow}" data-id="${node.id}">
-                            <i class="fa-solid fa-plug text-[8px] -rotate-45" style="color: ${domainColor}"></i>
+                        <div class="pin-body w-5 h-5 rotate-45 border-[2px] bg-slate-950 flex items-center justify-center pointer-events-auto cursor-pointer" style="${connShadow}" data-id="${node.id}">
+                            <i class="fa-solid fa-plug text-[9px] -rotate-45" style="color: ${domainColor}"></i>
                         </div>
                     `;
                     labelMarkup = `
@@ -1182,12 +1226,12 @@
                     `;
                 } else {
                     nodeBodyMarkup = `
-                        <div class="pin-body w-6 h-6 rounded-full border-[2.5px] bg-slate-900 flex items-center justify-center font-mono text-[9px] font-bold pointer-events-auto cursor-pointer" style="color: ${domainColor}; ${borderStyle}" data-id="${node.id}">
+                        <div class="pin-body w-7 h-7 rounded-full border-[2.5px] bg-slate-900 flex items-center justify-center font-mono text-[10px] font-bold pointer-events-auto cursor-pointer" style="color: ${domainColor}; ${borderStyle}" data-id="${node.id}">
                             ${node.id.substring(0, 3)}
                         </div>
                     `;
                     labelMarkup = `
-                        <div class="mt-1 px-1.5 py-0.5 rounded bg-black/90 border border-slate-700 text-[9px] font-mono text-slate-355 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none select-none">
+                        <div class="mt-1 px-1.5 py-0.5 rounded bg-black/90 border border-slate-700 text-[9px] font-mono text-slate-350 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none select-none">
                             ${node.id}
                         </div>
                     `;
@@ -1197,6 +1241,7 @@
 
                 const pinBody = pin.querySelector('.pin-body');
                 if (pinBody) {
+                    // 데스크톱용 마우스 클릭
                     pinBody.onmousedown = (event) => {
                         if(!isEditMode && event.button !== 2) {
                             selectECU(node.id);
@@ -1204,16 +1249,59 @@
                         }
                     };
 
+                    // 모바일용 터치 제어 개편 (탭 / 롱프레스 명확히 격리)
                     pinBody.ontouchstart = (event) => {
-                        if(!isEditMode) {
-                            selectECU(node.id);
-                            if (event.cancelable) {
-                                event.preventDefault();
+                        isLongPress = false;
+                        const touch = event.touches[0];
+                        startTouchX = touch.clientX;
+                        startTouchY = touch.clientY;
+
+                        if (!isEditMode) {
+                            // 롱터치 타이머 시동 (600ms 동안 유지 시 우클릭 효과 작동)
+                            touchTimer = setTimeout(() => {
+                                isLongPress = true;
+                                AndroidHelper.vibrate(60); // 롱터치 햅틱
+                                openDtcManager(node.id, touch.clientX, touch.clientY);
+                            }, 600);
+                        }
+                        event.stopPropagation();
+                    };
+
+                    pinBody.ontouchmove = (event) => {
+                        const touch = event.touches[0];
+                        const dist = Math.hypot(touch.clientX - startTouchX, touch.clientY - startTouchY);
+                        // 손가락이 12px 이상 흔들려 이동할 시 롱프레스 취소 (드래그 조작으로 인정)
+                        if (dist > 12) {
+                            if (touchTimer) {
+                                clearTimeout(touchTimer);
+                                touchTimer = null;
                             }
-                            event.stopPropagation();
                         }
                     };
 
+                    pinBody.ontouchend = (event) => {
+                        if (touchTimer) {
+                            clearTimeout(touchTimer);
+                            touchTimer = null;
+                        }
+
+                        if (!isEditMode && !isLongPress) {
+                            // 일반 탭 클릭
+                            selectECU(node.id);
+                        }
+                        isLongPress = false;
+                        event.stopPropagation();
+                    };
+
+                    pinBody.ontouchcancel = () => {
+                        if (touchTimer) {
+                            clearTimeout(touchTimer);
+                            touchTimer = null;
+                        }
+                        isLongPress = false;
+                    };
+
+                    // 데스크톱 우클릭 DTC 메뉴
                     pinBody.oncontextmenu = (event) => {
                         event.preventDefault();
                         if(!isEditMode) {
@@ -1229,18 +1317,6 @@
             setTimeout(renderNetworkConnections, 10);
         }
 
-        /**
-         * @function renderNetworkConnections
-         * @description 차량 도면 위에 렌더링된 핀들의 실제 물리적 크기 영역을 획득하여, 
-         *              노드 간 통신 링크 정보를 기반으로 SVG 동적 점선(Dotted Line) 커넥터를 작도합니다.
-         *              활성화되거나 선택된 통신 노드 연결망에는 빠른 유동 애니메이션 효과(CSS keyframe dashflow)를 주입합니다.
-         * @returns {void}
-         * @example
-         * // 예제 1: 연결망 수동 렌더링 호출
-         * renderNetworkConnections();
-         * @caution SVG viewBox 해상도를 vehicleSvgWrapper의 getBoundingClientRect() 실제 픽셀 너비/높이로 갱신하므로, 
-         *          차량 캔버스의 크기가 계산된 이후에 호출되어야 연결선이 핀의 정중앙에 정확히 조준됩니다.
-         */
         function renderNetworkConnections() {
             const svg = document.getElementById('svgNetworkConnections');
             if (!svg) return;
@@ -1382,6 +1458,7 @@
             const node = ecuData.find(n => n.id === nodeId);
             if (!node) return;
 
+            // 모바일일 경우 바텀시트로 우측 상세 드로어 열기
             if (window.innerWidth < 768) {
                 const rightDrawer = document.querySelector('aside.w-\\[340px\\]');
                 const overlay = document.getElementById('drawerOverlay');
@@ -1390,20 +1467,16 @@
             }
 
             document.getElementById('detailPanelEmpty').classList.add('hidden');
-            document.getElementById('detailPanelContent').classList.remove('hidden');
+            const detailPanel = document.getElementById('detailPanelContent');
+            detailPanel.classList.remove('hidden');
 
-            const isConnector = node.type === 'connector';
-            document.getElementById('detailPanelHeaderTitle').innerText = isConnector ? '커넥터 상세 모니터링' : '제어기 상세 모니터링';
-            document.getElementById('detailEcuSectionTitle').innerText = 'IMAGE';
-            document.getElementById('detailNetworkSectionTitle').innerText = isConnector ? '연결된 노드 네트워크' : '연결된 제어기 네트워크';
-
-            const detailEcuIdEl = document.getElementById('detailEcuId');
-            detailEcuIdEl.innerText = node.id;
-            detailEcuIdEl.style.color = getDomainColor(node.domain);
+            document.getElementById('detailEcuId').innerText = node.id;
             document.getElementById('detailEcuName').innerText = node.name;
             document.getElementById('detailEcuDesc').innerText = node.desc || '';
-            
+
+            const isConnector = node.type === 'connector';
             const domainBadge = document.getElementById('detailStatusBadge');
+            
             if (domainBadge) {
                 domainBadge.classList.remove('hidden');
                 if (node.status === 'fault') {
@@ -1414,7 +1487,7 @@
                     domainBadge.className = "bg-amber-500 text-white font-bold px-2 py-0.5 rounded text-[10px]";
                 } else {
                     domainBadge.innerText = 'NORMAL';
-                    domainBadge.className = "bg-slate-800 text-slate-350 font-bold px-2 py-0.5 rounded text-[10px]";
+                    domainBadge.className = "bg-slate-800 text-slate-355 font-bold px-2 py-0.5 rounded text-[10px]";
                 }
             }
 
@@ -1459,6 +1532,10 @@
             if (networkDetailContent && networkDetailContent.classList.contains('open')) {
                 networkDetailContent.style.maxHeight = 'none';
             }
+
+            // 안드로이드 네이티브에 노드 선택 알림 및 햅틱 진동 피드백 전달
+            AndroidHelper.onNodeSelected(nodeId);
+            AndroidHelper.vibrate(20);
         }
 
         function requestEditMode() {
@@ -1480,16 +1557,6 @@
             document.getElementById('passwordModal').classList.add('hidden');
         }
 
-        /**
-         * @function verifyPassword
-         * @description 위치 세팅(편집) 모드 진입 시 입력받은 비밀번호를 CONFIG.ADMIN_PASSWORD 상수와 대조 검증합니다.
-         *              인증 성공 시 모달을 닫고 핀의 자유 드래그 세팅 기능을 해제(Lock-Open) 상태로 전환합니다.
-         * @returns {void}
-         * @example
-         * // 예제 1: 비밀번호 매칭 시도 수동 호출
-         * verifyPassword();
-         * @caution 비밀번호 불일치 시 에러 문구 요소를 표출하며 편집 모드로 진입하지 않습니다.
-         */
         function verifyPassword() {
             const passwordInputValue = document.getElementById('pwInput').value;
             if (passwordInputValue === CONFIG.ADMIN_PASSWORD) {
@@ -1497,7 +1564,7 @@
                 isEditMode = true;
                 document.getElementById('editBtnText').innerText = "세팅 중 (클릭 시 저장)";
                 document.getElementById('editLockIcon').className = "fa-solid fa-lock-open";
-                alert("위치 세팅 모드가 활성화되었습니다. 노드를 마우스로 드래그하여 이동하세요.");
+                AndroidHelper.showToast("위치 세팅 모드가 활성화되었습니다. 노드를 터치/드래그하여 이동하세요.");
             } else {
                 document.getElementById('pwError').classList.remove('hidden');
             }
@@ -1562,9 +1629,9 @@
 
         function savePositions(silent = true) {
             try {
-                localStorage.setItem('ar_ecu_positions_v2', JSON.stringify(ecuData));
+                AndroidHelper.saveData(ecuData);
                 if (!silent) {
-                    alert("수정된 제어기 정보 및 위치가 안전하게 저장되었습니다.");
+                    AndroidHelper.showToast("수정된 제어기 정보 및 위치가 안전하게 저장되었습니다.");
                 }
             } catch (error) {
                 console.error("로컬 스토리지 저장 실패:", error);
@@ -1573,9 +1640,8 @@
 
         function loadPositions() {
             try {
-                const saved = localStorage.getItem('ar_ecu_positions_v2');
-                if (saved) {
-                    const parsed = JSON.parse(saved);
+                const parsed = AndroidHelper.loadData();
+                if (parsed) {
                     ecuData = DEFAULT_ECU_DATA.map(node => {
                         const sNode = parsed.find(p => p.id === node.id);
                         const merged = sNode && sNode.coords ? { ...node, coords: sNode.coords } : node;
@@ -1603,6 +1669,9 @@
             if(confirm("모든 제어기 및 커넥터의 위치와 설정을 초기 상태로 복구하시겠습니까?\n(사용자가 추가한 제어기 및 변경 사항이 완전히 소실됩니다.)")) {
                 try {
                     localStorage.removeItem('ar_ecu_positions_v2');
+                    if (AndroidHelper.isAndroid) {
+                        try { AndroidBridge.saveData(""); } catch(e){}
+                    }
                 } catch (error) {
                     console.error("로컬 스토리지 삭제 실패:", error);
                 }
@@ -1614,115 +1683,115 @@
             }
         }
 
+        // CSV 업로드 실행 분기 (안드로이드에서는 웹뷰 권한 대신 네이티브 파일 픽업 호출 지원)
         function triggerCsvUpload() {
+            if (AndroidHelper.isAndroid) {
+                try {
+                    AndroidBridge.triggerCsvPicker();
+                    return;
+                } catch (e) {
+                    console.error("AndroidBridge.triggerCsvPicker failed", e);
+                }
+            }
             document.getElementById('ecuCsvFileInput').click();
         }
 
-        /**
-         * @function handleCsvUpload
-         * @description 업로드된 엑셀(CSV) 텍스트 데이터를 로컬 FileReader로 파싱하고 기존 제어기 데이터를 갱신하거나 신규 노드를 추가 병합합니다.
-         *              병합 완료 후 로컬 스토리지에 자동 저장하고, 실시간 테이블 모달 리프레시 콜백을 트리거합니다.
-         * @param {HTMLInputElement} input - 파일 업로드 엘리먼트 객체
-         * @returns {void}
-         * @example
-         * // HTML 인풋 요소 바인딩
-         * <input type="file" onchange="handleCsvUpload(this)">
-         * @caution CSV 인코딩은 UTF-8 형식이어야 하며 첫 번째 행은 헤더 칼럼명(ID, 도메인, 명칭 등)이어야 정상 파싱됩니다.
-         */
         function handleCsvUpload(input) {
             const file = input.files[0];
             if (!file) return;
 
             const reader = new FileReader();
             reader.onload = function(e) {
-                const text = e.target.result;
-                const rows = text.split(/\r?\n/);
-                if (rows.length <= 1) {
-                    alert("업로드된 CSV 파일에 유효한 데이터가 존재하지 않습니다.");
-                    return;
-                }
-
-                let updatedCount = 0;
-                let addedCount = 0;
-
-                const existingMap = new Map();
-                ecuData.forEach(node => {
-                    existingMap.set(node.id.toUpperCase(), node);
-                });
-
-                const newEcuList = [];
-
-                for (let i = 1; i < rows.length; i++) {
-                    const rowText = rows[i].trim();
-                    if (!rowText) continue;
-
-                    const cols = rowText.split(',').map(c => c.trim().replace(/^"|"$/g, ''));
-                    if (cols.length < 3) continue;
-
-                    const id = cols[0].toUpperCase();
-                    const domain = cols[1].toUpperCase();
-                    const name = cols[2];
-                    
-                    const rawLinks = cols[3] || '';
-                    const links = rawLinks ? rawLinks.split(/[|;]/).map(l => l.trim().toUpperCase()).filter(Boolean) : [];
-
-                    const rawDtcs = cols[4] || '';
-                    const dtcs = rawDtcs ? rawDtcs.split(/[|;]/).map(d => d.trim().toUpperCase()).filter(Boolean) : [];
-
-                    const type = (domain === 'CONNECTOR' || id.startsWith('CON_')) ? 'connector' : 'ecu';
-
-                    const existingNode = existingMap.get(id);
-                    if (existingNode) {
-                        existingNode.domain = domain;
-                        existingNode.name = name;
-                        existingNode.links = links;
-                        existingNode.dtcs = dtcs;
-                        existingNode.type = type;
-                        
-                        newEcuList.push(existingNode);
-                        updatedCount++;
-                    } else {
-                        const newNode = {
-                            id: id,
-                            domain: domain,
-                            name: name,
-                            type: type,
-                            status: 'normal',
-                            links: links,
-                            dtcs: dtcs,
-                            coords: {
-                                top: { x: CONFIG.DEFAULT_COORD, y: CONFIG.DEFAULT_COORD },
-                                side: { x: CONFIG.DEFAULT_COORD, y: CONFIG.DEFAULT_COORD },
-                                front: { x: CONFIG.DEFAULT_COORD, y: CONFIG.DEFAULT_COORD }
-                            }
-                        };
-                        newEcuList.push(newNode);
-                        addedCount++;
-                    }
-                }
-
-                if (newEcuList.length > 0) {
-                    ecuData = newEcuList;
-                    savePositions(true);
-                    
-                    updateHeaderNodeCount();
-                    renderEcuList();
-                    renderEcuPins();
-                    
-                    const modal = document.getElementById('ecuTableModal');
-                    if (modal && !modal.classList.contains('hidden')) {
-                        openEcuTableModal();
-                    }
-                    
-                    alert(`엑셀(CSV) 데이터 연동 성공!\n- 신규 노드 추가: ${addedCount}건\n- 기존 노드 정보 갱신: ${updatedCount}건`);
-                } else {
-                    alert("파싱에 성공한 유효한 제어기 행이 없습니다.");
-                }
-
+                handleCsvTextParse(e.target.result);
                 input.value = '';
             };
-
             reader.readAsText(file, "UTF-8");
+        }
+
+        // 텍스트 기반 CSV 파싱 공통 메서드 분리 (네이티브 연동용)
+        function handleCsvTextParse(text) {
+            const rows = text.split(/\r?\n/);
+            if (rows.length <= 1) {
+                AndroidHelper.showToast("CSV 파일에 유효한 데이터가 존재하지 않습니다.");
+                return;
+            }
+
+            let updatedCount = 0;
+            let addedCount = 0;
+
+            const existingMap = new Map();
+            ecuData.forEach(node => {
+                existingMap.set(node.id.toUpperCase(), node);
+            });
+
+            const newEcuList = [];
+
+            for (let i = 1; i < rows.length; i++) {
+                const rowText = rows[i].trim();
+                if (!rowText) continue;
+
+                const cols = rowText.split(',').map(c => c.trim().replace(/^"|"$/g, ''));
+                if (cols.length < 3) continue;
+
+                const id = cols[0].toUpperCase();
+                const domain = cols[1].toUpperCase();
+                const name = cols[2];
+                
+                const rawLinks = cols[3] || '';
+                const links = rawLinks ? rawLinks.split(/[|;]/).map(l => l.trim().toUpperCase()).filter(Boolean) : [];
+
+                const rawDtcs = cols[4] || '';
+                const dtcs = rawDtcs ? rawDtcs.split(/[|;]/).map(d => d.trim().toUpperCase()).filter(Boolean) : [];
+
+                const type = (domain === 'CONNECTOR' || id.startsWith('CON_')) ? 'connector' : 'ecu';
+
+                const existingNode = existingMap.get(id);
+                if (existingNode) {
+                    existingNode.domain = domain;
+                    existingNode.name = name;
+                    existingNode.links = links;
+                    existingNode.dtcs = dtcs;
+                    existingNode.type = type;
+                    
+                    newEcuList.push(existingNode);
+                    updatedCount++;
+                } else {
+                    const newNode = {
+                        id: id,
+                        domain: domain,
+                        name: name,
+                        type: type,
+                        status: 'normal',
+                        links: links,
+                        dtcs: dtcs,
+                        coords: {
+                            top: { x: CONFIG.DEFAULT_COORD, y: CONFIG.DEFAULT_COORD },
+                            side: { x: CONFIG.DEFAULT_COORD, y: CONFIG.DEFAULT_COORD },
+                            front: { x: CONFIG.DEFAULT_COORD, y: CONFIG.DEFAULT_COORD }
+                        }
+                    };
+                    newEcuList.push(newNode);
+                    addedCount++;
+                }
+            }
+
+            if (newEcuList.length > 0) {
+                ecuData = newEcuList;
+                savePositions(true);
+                
+                updateHeaderNodeCount();
+                renderEcuList();
+                renderEcuPins();
+                
+                const modal = document.getElementById('ecuTableModal');
+                if (modal && !modal.classList.contains('hidden')) {
+                    openEcuTableModal();
+                }
+                
+                AndroidHelper.showToast(`CSV 연동 완료! 추가: ${addedCount}건, 갱신: ${updatedCount}건`);
+            } else {
+                AndroidHelper.showToast("유효한 제어기 행이 없습니다.");
+            }
         }
 
         function renderLinkCheckboxes(containerId, excludeNodeId, checkedLinks = []) {
@@ -1740,7 +1809,7 @@
                 wrapperDiv.className = 'flex items-center space-x-2 p-1 hover:bg-slate-800 rounded';
                 wrapperDiv.innerHTML = `
                     <input type="checkbox" id="${containerId}-chk-${node.id}" value="${node.id}" ${isChecked ? 'checked' : ''} class="accent-appleBlue rounded border-slate-700 bg-slate-900">
-                    <label for="${containerId}-chk-${node.id}" class="text-slate-350 cursor-pointer select-none truncate">${node.id}</label>
+                    <label for="${containerId}-chk-${node.id}" class="text-slate-300 cursor-pointer select-none truncate">${node.id}</label>
                 `;
                 container.appendChild(wrapperDiv);
             });
@@ -1808,17 +1877,6 @@
             }
         }
 
-        /**
-         * @function submitNewEcu
-         * @description 노드 생성 폼에서 입력받은 정보를 수집하여 신규 제어기(ECU) 또는 커넥터(CONNECTOR) 객체를 생성합니다.
-         *              생성된 노드를 전역 배열(ecuData)에 추가하고, 체크된 타겟 노드들과의 양방향 통신 링크를 자동 바인딩합니다.
-         * @returns {void}
-         * @example
-         * // 폼 제출 액션 매핑
-         * submitNewEcu();
-         * @caution 생성 시 좌표값은 화면 정중앙(50%, 50%)인 CONFIG.DEFAULT_COORD로 디폴트 초기화되며, 
-         *          위치 세팅 편집 모드 해제 후 정비사가 드래그하여 실배치해야 합니다.
-         */
         function submitNewEcu() {
             const type = document.getElementById('newEcuType').value;
             const id = document.getElementById('newEcuId').value.trim().toUpperCase();
@@ -1867,32 +1925,30 @@
             
             closeAddEcuModal();
             const nodeTypeName = type === 'connector' ? '커넥터 배선 노드' : '제어기(ECU) 노드';
-            alert(`'${id}' (${nodeTypeName})가 성공적으로 추가되었습니다.\n'위치 세팅' 모드(비밀번호: 0000)를 해제한 뒤 드래그하여 배치해 주세요.`);
+            AndroidHelper.showToast(`'${id}' (${nodeTypeName}) 추가 완료. 위치 세팅 모드를 풀고 배치하십시오.`);
         }
 
-        /**
-         * @function openDtcManager
-         * @description 대상 노드의 마우스 우클릭(또는 롱 터치) 시 작동하며, 마우스 포인터 좌표(x, y) 상에
-         *              해당 제어기의 DTC 고장코드 추가/삭제가 가능한 전용 간이 관리 팝업 컨텍스트 메뉴를 표출합니다.
-         * @param {string} nodeId - DTC를 관리할 대상 제어기/커넥터 노드의 ID
-         * @param {number} x - 팝업을 띄울 화면의 절대 X 픽셀 좌표
-         * @param {number} y - 팝업을 띄울 화면의 절대 Y 픽셀 좌표
-         * @returns {void}
-         * @example
-         * // 예제 1: BMS 노드의 우클릭 이벤트 바인딩
-         * openDtcManager('BMS', 450, 300);
-         * // 예제 2: 터치 지점 좌표 기반 호출
-         * openDtcManager('ADAS', touchX, touchY);
-         * @caution 이 팝업은 윈도우 mousedown 클릭 이벤트를 감지하여 팝업 바깥 영역 클릭 시 자동으로 닫힙니다.
-         */
         function openDtcManager(nodeId, x, y) {
             activeDtcNodeId = nodeId;
             const popup = document.getElementById('dtcManagerPopup');
             if (!popup) return;
             popup.querySelector('#dtcPopupTitle span').innerText = `${nodeId} DTC 목록`;
             
-            popup.style.left = `${x + 10}px`;
-            popup.style.top = `${y + 10}px`;
+            // 모바일 터치 오프셋 보정 (화면을 넘어가지 않도록 방지)
+            const popupWidth = 240;
+            const popupHeight = 220;
+            let displayX = x + 10;
+            let displayY = y + 10;
+
+            if (displayX + popupWidth > window.innerWidth) {
+                displayX = window.innerWidth - popupWidth - 10;
+            }
+            if (displayY + popupHeight > window.innerHeight) {
+                displayY = window.innerHeight - popupHeight - 10;
+            }
+
+            popup.style.left = `${displayX}px`;
+            popup.style.top = `${displayY}px`;
             popup.classList.remove('hidden');
             
             renderDtcList(nodeId);
@@ -1914,7 +1970,7 @@
                 li.className = "flex items-center justify-between bg-slate-900 border border-slate-800 px-2.5 py-1.5 rounded-lg text-xs";
                 li.innerHTML = `
                     <span class="font-mono text-appleLink font-bold">${code}</span>
-                    <button onclick="deleteDtc('${nodeId}', ${index})" class="text-rose-500 hover:text-rose-455 font-bold transition text-sm focus:outline-none">&times;</button>
+                    <button onclick="deleteDtc('${nodeId}', ${index})" class="text-rose-500 hover:text-rose-400 font-bold transition text-sm focus:outline-none">&times;</button>
                 `;
                 listWrap.appendChild(li);
             });
@@ -1923,10 +1979,15 @@
         function addDtc(nodeId, code) {
             const node = ecuData.find(n => n.id === nodeId);
             if (!node.dtcs) node.dtcs = [];
-            if (node.dtcs.includes(code)) { alert("이미 등록된 DTC 코드입니다."); return; }
+            if (node.dtcs.includes(code)) { AndroidHelper.showToast("이미 등록된 DTC 코드입니다."); return; }
             
             node.dtcs.push(code);
             savePositions(true);
+            
+            // 안드로이드 브릿지에 상태 알림 송출
+            AndroidHelper.onDtcChanged(nodeId, node.dtcs);
+            AndroidHelper.vibrate(40);
+
             renderDtcList(nodeId);
             renderEcuList();
             renderEcuPins();
@@ -1938,6 +1999,11 @@
             if (confirm(`${code} DTC 코드를 삭제하시겠습니까?`)) {
                 node.dtcs.splice(index, 1);
                 savePositions(true);
+                
+                // 안드로이드 브릿지에 상태 알림 송출
+                AndroidHelper.onDtcChanged(nodeId, node.dtcs);
+                AndroidHelper.vibrate(30);
+
                 renderDtcList(nodeId);
                 renderEcuList();
                 renderEcuPins();
@@ -1966,7 +2032,7 @@
                 updateHeaderNodeCount();
                 renderEcuList();
                 renderEcuPins();
-                alert("제어기가 삭제되었습니다.");
+                AndroidHelper.showToast("제어기가 삭제되었습니다.");
             }
         }
 
@@ -2064,7 +2130,7 @@
             
             closeEditEcuModal();
             const label = node.type === 'connector' ? '커넥터 배선' : '제어기(ECU)';
-            alert(`'${id}' (${label}) 정보가 수정되었습니다.`);
+            AndroidHelper.showToast(`'${id}' (${label}) 정보가 수정되었습니다.`);
         }
 
         function toggleAccordion(sectionId) {
@@ -2106,6 +2172,7 @@
             }
         });
 
+        // 모바일 화면 방향 락 (HTML5 지원 기기 대응)
         async function lockScreenOrientation() {
             try {
                 if (document.documentElement.requestFullscreen) {
@@ -2170,33 +2237,35 @@
                 statusInd.classList.add('hidden');
                 seeThroughWrapper.classList.add('hidden');
                 
-                // AR 필터 그룹 UI 숨김
                 const filterGroup = document.getElementById('arFilterModeGroup');
                 if (filterGroup) filterGroup.classList.add('hidden');
 
-                // 타이어 가이드 링 UI 숨김
                 const guideRing = document.getElementById('arTireGuideRing');
                 if (guideRing) guideRing.classList.add('hidden');
 
                 if (guidanceOverlay) guidanceOverlay.classList.add('hidden');
+                
+                // 방향 락 해제 (웹 브라우저 및 안드로이드 기기 방향 고정 해제)
                 unlockScreenOrientation();
+                AndroidHelper.setLandscapeLock(false);
 
                 document.querySelectorAll('.focus-guide-corner').forEach(corner => {
                     corner.classList.remove('aligned');
                 });
                 
                 topBtn.disabled = false;
+                topBtn.classList.add('opacity-30', 'cursor-not-allowed'); // TOP 뷰는 원래 AR 모드 시 제한
                 topBtn.classList.remove('cursor-not-allowed', 'opacity-30');
                 
                 stopCamera();
                 restoreOriginalVehicleOpacity();
                 
-                // AR 모드 OFF 시 원래의 검은색 배경색으로 원상복구
+                // 원래의 딥 블랙 배경색 복원
                 if (mainArea) mainArea.style.setProperty('background-color', '#000000', 'important');
                 if (bodyEl) bodyEl.style.setProperty('background-color', '#000000', 'important');
                 
                 renderEcuPins();
-                alert("AR 스캔 모드가 비활성화되었습니다.");
+                AndroidHelper.showToast("AR 스캔 모드가 비활성화되었습니다.");
             } else {
                 isArMode = true;
                 
@@ -2207,11 +2276,9 @@
                 focusGuide.classList.remove('hidden');
                 statusInd.classList.remove('hidden');
                 
-                // AR 필터 그룹 UI 표시
                 const filterGroup = document.getElementById('arFilterModeGroup');
                 if (filterGroup) filterGroup.classList.remove('hidden');
 
-                // 타이어 가이드 링 UI 표시 (오직 측면 SIDE 뷰일 때만 오버레이 노출)
                 const guideRing = document.getElementById('arTireGuideRing');
                 if (guideRing) {
                     if (currentView === 'side') {
@@ -2222,7 +2289,10 @@
                 }
                 
                 if (guidanceOverlay) guidanceOverlay.classList.remove('hidden');
+                
+                // 가로(Landscape) 모드 회전 및 락 작동 (네이티브 및 웹 동시 요청)
                 lockScreenOrientation();
+                AndroidHelper.setLandscapeLock(true);
 
                 const statusTxt = document.getElementById('arStatusText');
                 statusTxt.innerText = "차량을 카메라 중앙에 맞춰 주세요.";
@@ -2232,13 +2302,12 @@
                 topBtn.classList.add('cursor-not-allowed', 'opacity-30');
                 
                 if (currentView === 'top') {
-                    // switchView('side') 내부에서 startCamera()를 자체 기동하므로 중복 시작 방지
                     switchView('side');
                 } else {
                     startCamera();
                 }
                 
-                // AR 모드 ON 시 배경을 투명하게 만들어 바디 맨 뒤의 카메라 화면을 드러냄
+                // 네이티브 카메라 뷰 노출을 위해 웹뷰 배경 투명화
                 if (mainArea) mainArea.style.setProperty('background-color', 'transparent', 'important');
                 if (bodyEl) bodyEl.style.setProperty('background-color', 'transparent', 'important');
                 
@@ -2254,7 +2323,6 @@
             const wheelAnchorEl = document.querySelector('#wheelAnchor');
             if (!wheelAnchorEl) return;
 
-            // 타겟 감지 성공
             wheelAnchorEl.addEventListener("targetFound", () => {
                 console.log("바퀴 휠 타겟 감지 성공!");
                 
@@ -2275,7 +2343,6 @@
                         corner.classList.add('aligned');
                     });
 
-                    // 매핑 완료 시 가이드 링 숨기기
                     const guideRing = document.getElementById('arTireGuideRing');
                     if (guideRing) guideRing.classList.add('hidden');
 
@@ -2285,10 +2352,10 @@
                     document.getElementById('arSeeThroughWrapper').classList.remove('hidden');
                     document.getElementById('arSeeThroughSlider').value = 100;
                     handleSeeThrough(100);
+                    AndroidHelper.vibrate(100); // 인식 완료 진동 피드백
                 }, 1200);
             });
 
-            // 타겟 유실
             wheelAnchorEl.addEventListener("targetLost", () => {
                 console.log("바퀴 휠 타겟 유실됨!");
                 isArAligned = false;
@@ -2302,7 +2369,6 @@
                 
                 document.getElementById('arSeeThroughWrapper').classList.add('hidden');
                 
-                // 타겟 유실 시 측면 SIDE 뷰인 경우에만 조준 링 다시 표시
                 const guideRing = document.getElementById('arTireGuideRing');
                 if (guideRing) {
                     if (currentView === 'side') {
@@ -2312,26 +2378,13 @@
                     }
                 }
 
-                // 해당 앵커의 핀들 비우기
                 wheelAnchorEl.innerHTML = '';
             });
         }
 
-
-
-        /**
-         * @var {string} arFilterMode
-         * @description AR 핀 표출 필터 모드 상태값 ('all': 전체 노드 표출, 'selected': 선택 및 연결 노드 집중 표출)
-         */
         let arFilterMode = 'all';
         
-        /**
-         * @function showToast
-         * @description Apple 스타일의 세련된 다크모드 플로팅 토스트 메시지를 화면에 일시적으로 팝업 출력합니다.
-         * @param {string} message - 출력할 안내 텍스트
-         * @returns {void}
-         */
-        function showToast(message) {
+        function showHtmlToast(message) {
             try {
                 const oldToast = document.getElementById('arGlobalToast');
                 if (oldToast) oldToast.remove();
@@ -2356,22 +2409,14 @@
                     }, 300);
                 }, 2500);
             } catch (e) {
-                console.error("showToast failed:", e);
+                console.error("showHtmlToast failed:", e);
             }
         }
 
-        /**
-         * @function setArFilterMode
-         * @description AR 화면 상단의 필터 탭 모드를 토글 전환하고 UI 스타일 갱신 및 3D 핀 맵을 즉시 재렌더링합니다.
-         * @param {string} mode - 변경할 필터 모드 ('all' | 'selected')
-         * @returns {void}
-         */
         function setArFilterMode(mode) {
             try {
-                // 선택 노드 필터 선택 시, 실제로 2D상에서 선택한 노드가 없을 경우 예외 안내 처리
                 if (mode === 'selected' && !selectedEcuId) {
-                    showToast("목록에서 제어기를 선택해주세요 ");
-                    // UI 선택값을 다시 [전체 노드] 상태로 강제 복구
+                    AndroidHelper.showToast("목록에서 제어기를 선택해주세요");
                     setArFilterMode('all');
                     return;
                 }
@@ -2389,20 +2434,12 @@
                     selectedFilterButton.className = "px-3 py-1 rounded-full bg-appleLink text-white font-bold transition";
                 }
 
-                // 필터링된 조건으로 3D AR 핀 즉시 재렌더링
                 generateArPinsOnWheelAnchor();
             } catch (error) {
                 console.error("setArFilterMode execution failed:", error);
             }
         }
 
-        /**
-         * @function generateArPinsOnWheelAnchor
-         * @description 인식된 앞바퀴 마커의 로컬 원점 (0,0,0)을 기준으로, 
-         *              사용자가 2D 도면상에 수동 정렬해 둔 coords.side 비율 좌표계를 미터(Meter) 단위로 환산하여
-         *              A-Frame 3D 공간 상에 둥둥 떠 있는 대화형 핀들로 실시간 매핑 배치합니다.
-         * @returns {void}
-         */
         function generateArPinsOnWheelAnchor() {
             try {
                 const wheelAnchorElement = document.getElementById('wheelAnchor');
@@ -2410,53 +2447,40 @@
                 wheelAnchorElement.innerHTML = ''; 
 
                 if (!Array.isArray(ecuData) || ecuData.length === 0) {
-                    console.warn("generateArPinsOnWheelAnchor: No active ecuData loaded.");
                     return;
                 }
 
-                // 2D 측면 도면 이미지 상의 실제 앞바퀴 휠 정중앙 좌표 (%)
-                // side_view.png 내의 앞바퀴 휠 센터축 좌표 매칭 (3D 이미지 트래킹 앵커 원점)
                 const WHEEL_CENTER_2D = { x: 17.5, y: 68.5 }; 
-
-                // 2D 퍼센트(%) 단위를 3D AR 공간의 실제 미터(Meter) 단위로 환산하는 정밀 축척 팩터 (휠베이스 비례)
                 const SCALE_FACTOR = 0.043; 
 
                 ecuData.forEach(ecuNode => {
                     if (!ecuNode.coords || !ecuNode.coords.side) return;
 
-                    // [선택 노드 집중] 필터 모드일 때, 선택된 노드 및 그와 직접 연결된 노드만 통과
                     if (arFilterMode === 'selected' && selectedEcuId) {
                         const selectedNode = ecuData.find(n => n.id === selectedEcuId);
                         const isSelf = (ecuNode.id === selectedEcuId);
                         const isLinked = selectedNode && selectedNode.links && selectedNode.links.includes(ecuNode.id);
                         if (!isSelf && !isLinked) {
-                            return; // 렌더링 스킵
+                            return; 
                         }
                     }
 
                     const sideCoord = ecuNode.coords.side;
-                    
-                    // 앞바퀴 중심 대비 상대적 2D 델타거리 계산
                     const deltaX = sideCoord.x - WHEEL_CENTER_2D.x;
-                    // 웹 좌표(아래가 +Y)와 A-Frame 3D 공간(위가 +Y)의 방향 반전을 매칭하기 위해 부호 반전
                     const deltaY = WHEEL_CENTER_2D.y - sideCoord.y; 
 
-                    // 3D 공간의 X, Y 미터 오프셋 산출
                     const offsetX = deltaX * SCALE_FACTOR;
                     const offsetY = deltaY * SCALE_FACTOR;
-                    const offsetZ = 0.0; // 기본 측면 2D 투영 평면
+                    const offsetZ = 0.0; 
 
                     const domainColor = getDomainColor(ecuNode.domain);
                     const isConnector = ecuNode.type === 'connector';
                     const isSelected = (selectedEcuId === ecuNode.id);
 
-                    // 핀을 묶을 기본 그룹 엔티티
                     const pinGroup = document.createElement('a-entity');
                     pinGroup.setAttribute('position', `${offsetX} ${offsetY} ${offsetZ}`);
-                    // 항상 카메라 정면을 바라보도록 Billboard 속성 주입 (텍스트 납작해짐 및 숨겨짐 방지)
                     pinGroup.setAttribute('look-at', '#arCameraSide');
 
-                    // 핀 기본 도형 (ECU: 원형, CONNECTOR: 마름모)
                     const pinGeometry = document.createElement('a-entity');
                     if (isConnector) {
                         pinGeometry.setAttribute('geometry', 'primitive: plane; width: 0.055; height: 0.055');
@@ -2467,7 +2491,6 @@
                         pinGeometry.setAttribute('material', `color: ${domainColor}; shader: flat; transparent: true; opacity: 0.9;`);
                     }
 
-                    // 선택된 핀의 경우 하이라이트 흰색 테두리 추가
                     if (isSelected) {
                         const borderRing = document.createElement('a-entity');
                         borderRing.setAttribute('geometry', 'primitive: ring; radiusInner: 0.040; radiusOuter: 0.048');
@@ -2475,24 +2498,20 @@
                         pinGroup.appendChild(borderRing);
                     }
 
-                    // 텍스트 라벨 (BMS, ADAS 등 영문 ID 명칭)
-                    // 핀 중심에서 0.07m(7cm) 위쪽으로 분리하여 공중에 띄우는 a-text 방식으로 개편 (Z-fighting 방지)
                     const textLabel = document.createElement('a-text');
                     textLabel.setAttribute('value', ecuNode.id);
                     textLabel.setAttribute('align', 'center');
                     textLabel.setAttribute('color', '#FFFFFF');
-                    textLabel.setAttribute('width', '1.4'); // 가독성 높은 최적 크기
-                    textLabel.setAttribute('position', '0 0.07 0.01'); // 핀 위쪽 공중에 배치하고 Z축으로 1cm 앞쪽으로 밀어 Z-fighting 방지
-                    textLabel.setAttribute('font', 'mozillavr'); // 브라우저 호환성이 가장 뛰어난 빌트인 폰트 사용
+                    textLabel.setAttribute('width', '1.4'); 
+                    textLabel.setAttribute('position', '0 0.07 0.01'); 
+                    textLabel.setAttribute('font', 'mozillavr'); 
 
                     pinGroup.appendChild(pinGeometry);
                     pinGroup.appendChild(textLabel);
 
-                    // 클릭 상호작용 등록을 위한 clickable 클래스 부여 및 클릭 리스너 연결
                     pinGroup.setAttribute('class', 'clickable');
                     pinGroup.addEventListener('click', () => {
                         selectECU(ecuNode.id);
-                        // 선택 시 선택된 핀을 리프레시하여 테두리 링을 반영하기 위해 A-Frame 핀 맵 재출력
                         generateArPinsOnWheelAnchor();
                     });
 
@@ -2577,7 +2596,6 @@
             canvas.width = rect.width;
             canvas.height = rect.height;
 
-            let scanProgress = 0;
             let noiseFrame = 0;
 
             function drawFrame() {
@@ -2664,6 +2682,7 @@
                 document.getElementById('arSeeThroughWrapper').classList.remove('hidden');
                 document.getElementById('arSeeThroughSlider').value = 100;
                 handleSeeThrough(100);
+                AndroidHelper.vibrate(100); // 매핑 정렬 완료 햅틱 진동
 
                 isScanning = false;
                 scanBtn.disabled = false;
@@ -2731,7 +2750,6 @@
             }
         }
 
-        // 브라우저 윈도우 크기 변경 시 차량 정렬 유도 리사이즈 이벤트 바인딩
         window.addEventListener('resize', () => {
             if (typeof resizeVehicleCanvas === 'function') {
                 resizeVehicleCanvas();
