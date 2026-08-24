@@ -1530,20 +1530,17 @@
             isArMode = !isArMode;
             const arBtn = document.getElementById('arModeToggleBtn');
             const arText = document.getElementById('arModeBtnText');
-            const svgWrapper = document.getElementById('vehicleSvgWrapper');
             
             if (isArMode) {
                 arText.innerText = "AR 스캔 중";
                 document.documentElement.style.backgroundColor = 'transparent';
                 document.body.style.backgroundColor = 'transparent';
-                if(svgWrapper) svgWrapper.style.opacity = '0';
                 AndroidHelper.setLandscapeLock(true);
                 triggerArScanning();
             } else {
                 arText.innerText = "AR 모드 OFF";
                 document.documentElement.style.backgroundColor = '#000000';
                 document.body.style.backgroundColor = '#000000';
-                if(svgWrapper) svgWrapper.style.opacity = '1';
                 AndroidHelper.setLandscapeLock(false);
             }
             renderEcuPins();
