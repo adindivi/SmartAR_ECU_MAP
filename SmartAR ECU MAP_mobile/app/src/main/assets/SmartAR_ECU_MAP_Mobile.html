@@ -1530,17 +1530,31 @@
             isArMode = !isArMode;
             const arBtn = document.getElementById('arModeToggleBtn');
             const arText = document.getElementById('arModeBtnText');
+            const carImages = document.querySelectorAll('#svgTopView img, #svgSideView img, #svgFrontView img');
             
             if (isArMode) {
                 arText.innerText = "AR 스캔 중";
                 document.documentElement.style.backgroundColor = 'transparent';
                 document.body.style.backgroundColor = 'transparent';
+                
+                // AR 모드: 차량 이미지를 반투명하게 처리하여 카메라 시야 확보 (추천 투명도 35%)
+                carImages.forEach(img => {
+                    img.style.opacity = '0.35';
+                    img.style.transition = 'opacity 0.4s ease';
+                });
+                
                 AndroidHelper.setLandscapeLock(true);
                 triggerArScanning();
             } else {
                 arText.innerText = "AR 모드 OFF";
                 document.documentElement.style.backgroundColor = '#000000';
                 document.body.style.backgroundColor = '#000000';
+                
+                // 일반 모드: 차량 이미지 투명도 원상복구
+                carImages.forEach(img => {
+                    img.style.opacity = '1';
+                });
+                
                 AndroidHelper.setLandscapeLock(false);
             }
             renderEcuPins();
