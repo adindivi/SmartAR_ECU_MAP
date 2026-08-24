@@ -28,15 +28,20 @@ import androidx.compose.ui.graphics.Color
 import java.io.BufferedReader
 import java.io.InputStreamReader
 
+import androidx.compose.runtime.mutableStateOf
+
 class MainActivity : ComponentActivity() {
 
     private var webView: WebView? = null
     private val PREFS_NAME = "SmartAR_ECU_Prefs"
     private val KEY_ECU_DATA = "ar_ecu_positions_v2"
+    
+    private val hasCameraPermission = mutableStateOf(false)
 
     private val cameraPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { isGranted ->
+        hasCameraPermission.value = isGranted
         if (isGranted) {
             Toast.makeText(this, "카메라 권한이 승인되었습니다.", Toast.LENGTH_SHORT).show()
         } else {
@@ -73,8 +78,11 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // 카메라 권한 동적 확인 및 요청
-        checkAndRequestCameraPermission()
+        // 카메라 권한 초기 확인 및 요청
+        hasCameraPermission.value = ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
+        if (!hasCameraPermission.value) {
+            cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
+        }
 
         // 뒤로가기 처리를 위한 OnBackPressedCallback 등록 (Deprecated onBackPressed 대체)
         onBackPressedDispatcher.addCallback(this, object : androidx.activity.OnBackPressedCallback(true) {
@@ -92,7 +100,9 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             androidx.compose.foundation.layout.Box(modifier = Modifier.fillMaxSize()) {
-                CameraPreview(modifier = Modifier.fillMaxSize())
+                if (hasCameraPermission.value) {
+                    CameraPreview(modifier = Modifier.fillMaxSize())
+                }
                 WebViewContainer(
                     assetUrl = "file:///android_asset/SmartAR_ECU_MAP_Mobile.html",
                     javascriptInterface = AndroidBridge(),
@@ -108,14 +118,6 @@ class MainActivity : ComponentActivity() {
     override fun onDestroy() {
         webView = null // 메모리 누수 방지
         super.onDestroy()
-    }
-
-    private fun checkAndRequestCameraPermission() {
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA)
-            != PackageManager.PERMISSION_GRANTED
-        ) {
-            cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
-        }
     }
 
     inner class AndroidBridge {
