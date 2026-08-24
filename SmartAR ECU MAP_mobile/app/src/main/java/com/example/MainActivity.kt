@@ -170,7 +170,7 @@ class MainActivity : ComponentActivity() {
                 requestedOrientation = if (lock) {
                     ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
                 } else {
-                    ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+                    ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
                 }
             }
         }
