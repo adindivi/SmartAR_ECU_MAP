@@ -460,7 +460,6 @@
                 <div class="rounded-2xl border border-arBorder bg-black/40 p-4 mb-3">
                     <div class="flex items-center justify-between mb-2">
                         <span id="detailEcuId" class="text-[26px] font-bold font-mono text-white">MDPS</span>
-                        <span id="detailStatusBadge" class="hidden"></span>
                     </div>
                     <div id="detailEcuName" class="text-sm font-semibold text-slate-200 mb-1 break-keep">전동식 파워 스티어링</div>
                     <div id="detailEcuDesc" class="text-[11px] text-appleTextMuted leading-relaxed break-keep">엔진 분사, 점화 및 연료 효율 통제 제어기</div>
@@ -1475,21 +1474,7 @@
             document.getElementById('detailEcuDesc').innerText = node.desc || '';
 
             const isConnector = node.type === 'connector';
-            const domainBadge = document.getElementById('detailStatusBadge');
-            
-            if (domainBadge) {
-                domainBadge.classList.remove('hidden');
-                if (node.status === 'fault') {
-                    domainBadge.innerText = 'FAULT';
-                    domainBadge.className = "bg-rose-600 text-white font-bold px-2 py-0.5 rounded text-[10px]";
-                } else if (node.status === 'warning') {
-                    domainBadge.innerText = 'WARNING';
-                    domainBadge.className = "bg-amber-500 text-white font-bold px-2 py-0.5 rounded text-[10px]";
-                } else {
-                    domainBadge.innerText = 'NORMAL';
-                    domainBadge.className = "bg-slate-800 text-slate-355 font-bold px-2 py-0.5 rounded text-[10px]";
-                }
-            }
+
 
             const detailAccordionWrapper = document.getElementById('ecuDetailAccordionWrapper');
             if (detailAccordionWrapper) {

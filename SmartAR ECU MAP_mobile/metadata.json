@@ -1,0 +1,6 @@
+{
+  "name": "Smart AR ECU MAP",
+  "description": "Smart AR ECU MAP Mobile Hybrid App with Camera AR Tracking",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

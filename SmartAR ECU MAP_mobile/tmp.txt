@@ -1,0 +1,21 @@
+
+        // 카메라 권한 동적 확인 및 요청
+        checkAndRequestCameraPermission()
+
+        setContent {
+            Surface(
+                modifier = Modifier.fillMaxSize(),
+                color = Color.Black
+            ) {
+                WebViewContainer(
+                    assetUrl = "file:///android_asset/SmartAR_ECU_MAP_Mobile.html",
+                    javascriptInterface = AndroidBridge(),
+                    interfaceName = "AndroidBridge",
+                    onWebViewCreated = { instance ->
+                        webView = instance
+                    }
+                )
+            }
+        }
+    }
+
