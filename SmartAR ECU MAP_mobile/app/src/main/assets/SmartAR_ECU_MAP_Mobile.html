@@ -1363,7 +1363,8 @@
         }
 
         function triggerCsvExport() {
-            let csvStr = "ID,제어기명,도메인,TopX,TopY,SideX,SideY,FrontX,FrontY,연결노드,DTC코드\n";
+            // 엑셀에서 UTF-8 인코딩을 정상적으로 인식하도록 BOM(\uFEFF)을 맨 앞에 추가합니다.
+            let csvStr = "\uFEFFID,제어기명,도메인,TopX,TopY,SideX,SideY,FrontX,FrontY,연결노드,DTC코드\n";
             ecuData.forEach(node => {
                 const links = (node.links || []).join("|");
                 const dtcs = (node.dtcs || []).join("|");
