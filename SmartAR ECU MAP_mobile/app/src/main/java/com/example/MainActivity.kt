@@ -49,6 +49,27 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    private var pendingCsvDataToExport: String? = null
+
+    private val createDocumentLauncher = registerForActivityResult(
+        ActivityResultContracts.CreateDocument("text/csv")
+    ) { uri ->
+        uri?.let {
+            pendingCsvDataToExport?.let { csvData ->
+                try {
+                    contentResolver.openOutputStream(it)?.use { outputStream ->
+                        outputStream.write(csvData.toByteArray(Charsets.UTF_8))
+                    }
+                    Toast.makeText(this, "CSV 파일이 성공적으로 저장되었습니다.", Toast.LENGTH_SHORT).show()
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                    Toast.makeText(this, "CSV 저장 중 오류가 발생했습니다.", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+        pendingCsvDataToExport = null
+    }
+
     private val csvPickerLauncher = registerForActivityResult(
         ActivityResultContracts.GetContent()
     ) { uri ->
@@ -188,6 +209,14 @@ class MainActivity : ComponentActivity() {
         fun triggerCsvPicker() {
             runOnUiThread {
                 csvPickerLauncher.launch("*/*")
+            }
+        }
+
+        @JavascriptInterface
+        fun exportCsvData(csvStr: String, defaultFilename: String) {
+            pendingCsvDataToExport = csvStr
+            runOnUiThread {
+                createDocumentLauncher.launch(defaultFilename)
             }
         }
     }

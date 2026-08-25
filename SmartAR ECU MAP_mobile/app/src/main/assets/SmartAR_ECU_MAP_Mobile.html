@@ -634,6 +634,10 @@
                 </h3>
                 <div class="flex items-center space-x-3">
                     <input type="file" id="ecuCsvFileInput" accept=".csv" class="hidden" onchange="handleCsvUpload(this)">
+                    <button onclick="triggerCsvExport()" class="px-3 py-1.5 rounded-full bg-slate-900 border border-slate-800 hover:border-slate-600 text-slate-350 hover:text-white text-xs transition flex items-center space-x-1.5 focus:outline-none mr-2">
+                        <i class="fa-solid fa-file-export text-emerald-400"></i>
+                        <span class="text-xs font-semibold">엑셀 추출</span>
+                    </button>
                     <button onclick="triggerCsvUpload()" class="px-3 py-1.5 rounded-full bg-slate-900 border border-slate-800 hover:border-slate-600 text-slate-350 hover:text-white text-xs transition flex items-center space-x-1.5 focus:outline-none">
                         <i class="fa-solid fa-file-import text-appleLink"></i>
                         <span class="text-xs font-semibold">엑셀 업로드</span>
@@ -1358,6 +1362,42 @@
             }
         }
 
+        function triggerCsvExport() {
+            let csvStr = "ID,제어기명,도메인,TopX,TopY,SideX,SideY,FrontX,FrontY,연결노드,DTC코드\n";
+            ecuData.forEach(node => {
+                const links = (node.links || []).join("|");
+                const dtcs = (node.dtcs || []).join("|");
+                const topX = node.coords.top.x.toFixed(2);
+                const topY = node.coords.top.y.toFixed(2);
+                const sideX = node.coords.side.x.toFixed(2);
+                const sideY = node.coords.side.y.toFixed(2);
+                const frontX = node.coords.front.x.toFixed(2);
+                const frontY = node.coords.front.y.toFixed(2);
+                
+                csvStr += `${node.id},"${node.name}",${node.domain},${topX},${topY},${sideX},${sideY},${frontX},${frontY},"${links}","${dtcs}"\n`;
+            });
+
+            const dateStr = new Date().toISOString().slice(0,10).replace(/-/g, "");
+            const filename = `SmartAR_ECU_Setting_${dateStr}.csv`;
+
+            if (AndroidHelper.isAndroid) {
+                try {
+                    AndroidBridge.exportCsvData(csvStr, filename);
+                    return;
+                } catch(e) {}
+            }
+            
+            // Web fallback
+            const blob = new Blob([csvStr], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement("a");
+            const url = URL.createObjectURL(blob);
+            link.setAttribute("href", url);
+            link.setAttribute("download", filename);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
         function triggerCsvUpload() {
             if (AndroidHelper.isAndroid) {
                 try {
@@ -1399,20 +1439,38 @@
                 const rowText = rows[i].trim();
                 if (!rowText) continue;
 
-                const cols = rowText.split(',').map(c => c.trim().replace(/^"|"$/g, ''));
+                // Simple CSV parse handling quotes
+                const regex = /(".*?"|[^",\s]+)(?=\s*,|\s*$)/g;
+                let cols = [];
+                let match;
+                while (match = regex.exec(rowText)) {
+                    cols.push(match[1].replace(/^"|"$/g, '').trim());
+                }
+                
+                // Fallback to simple split if regex fails to capture everything (though rare)
+                if(cols.length === 0) cols = rowText.split(',').map(c => c.trim().replace(/^"|"$/g, ''));
                 if (cols.length < 3) continue;
 
                 const id = cols[0].toUpperCase();
-                const domain = cols[1].toUpperCase();
-                const name = cols[2];
-                const links = (cols[3] || '').split(/[|;]/).map(l => l.trim().toUpperCase()).filter(Boolean);
-                const dtcs = (cols[4] || '').split(/[|;]/).map(d => d.trim().toUpperCase()).filter(Boolean);
+                const name = cols[1];
+                const domain = cols[2].toUpperCase();
+                const topX = parseFloat(cols[3]) || 50;
+                const topY = parseFloat(cols[4]) || 50;
+                const sideX = parseFloat(cols[5]) || 50;
+                const sideY = parseFloat(cols[6]) || 50;
+                const frontX = parseFloat(cols[7]) || 50;
+                const frontY = parseFloat(cols[8]) || 50;
+                const links = (cols[9] || '').split(/[|;]/).map(l => l.trim().toUpperCase()).filter(Boolean);
+                const dtcs = (cols[10] || '').split(/[|;]/).map(d => d.trim().toUpperCase()).filter(Boolean);
                 const type = (domain === 'CONNECTOR' || id.startsWith('CON_')) ? 'connector' : 'ecu';
 
                 const existingNode = existingMap.get(id);
                 if (existingNode) {
                     existingNode.domain = domain;
                     existingNode.name = name;
+                    existingNode.coords.top = { x: topX, y: topY };
+                    existingNode.coords.side = { x: sideX, y: sideY };
+                    existingNode.coords.front = { x: frontX, y: frontY };
                     existingNode.links = links;
                     existingNode.dtcs = dtcs;
                     existingNode.type = type;
@@ -1421,7 +1479,7 @@
                 } else {
                     newEcuList.push({
                         id, domain, name, type, status: 'normal', links, dtcs,
-                        coords: { top: { x: 50, y: 50 }, side: { x: 50, y: 50 }, front: { x: 50, y: 50 } }
+                        coords: { top: { x: topX, y: topY }, side: { x: sideX, y: sideY }, front: { x: frontX, y: frontY } }
                     });
                     addedCount++;
                 }
