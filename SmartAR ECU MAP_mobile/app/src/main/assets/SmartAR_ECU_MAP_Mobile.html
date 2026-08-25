@@ -455,6 +455,9 @@
                                         <i class="fa-solid fa-microchip text-appleLink text-3xl mb-2 animate-pulse"></i>
                                         <span class="text-[11px] text-slate-400 font-semibold break-keep">ECU/Connector Node Active</span>
                                     </div>
+                                    <img id="detailEcuImage" src="" class="absolute inset-0 w-full h-full object-cover z-10 hidden" 
+                                         onload="this.classList.remove('hidden'); document.getElementById('hudFallbackScanner').classList.add('hidden');" 
+                                         onerror="this.classList.add('hidden'); document.getElementById('hudFallbackScanner').classList.remove('hidden');">
                                 </div>
                             </div>
                         </div>
@@ -1227,6 +1230,18 @@
             document.getElementById('detailEcuName').innerText = node.name;
             document.getElementById('detailEcuDesc').innerText = node.desc || '';
 
+            // 제어기 이미지 동적 로딩 (예: BMS.jpg)
+            const detailEcuImage = document.getElementById('detailEcuImage');
+            const hudFallback = document.getElementById('hudFallbackScanner');
+            if (detailEcuImage && hudFallback) {
+                // 이전에 부여된 hidden이나 onload/onerror 클래스 초기화
+                detailEcuImage.classList.add('hidden');
+                hudFallback.classList.remove('hidden');
+                
+                // 새로운 경로 설정 시도 (JPG와 PNG 지원)
+                detailEcuImage.src = `./car_image/${node.id}.jpg`;
+            }
+
             const linksContainer = document.getElementById('detailConnectedList');
             if (linksContainer) {
                 linksContainer.innerHTML = '';
@@ -1512,10 +1527,13 @@
         function submitNewEcu() {
             const id = document.getElementById('newEcuId').value.trim().toUpperCase();
             const name = document.getElementById('newEcuName').value.trim();
-            if (!id || !name) { alert("ID와 명칭을 입력해 주세요."); return; }
+            if (!id || !name) { AndroidHelper.showToast("ID와 명칭을 입력해 주세요."); return; }
+
+            const domain = document.getElementById('newEcuDomain').value;
+            const type = (domain === 'CONNECTOR' || id.startsWith('CON_')) ? 'connector' : 'ecu';
 
             ecuData.push({
-                id, name, domain: "POWERTRAIN", type: "ecu", status: "normal", links: [],
+                id, name, domain, type, status: "normal", links: [],
                 coords: { top: { x: 50, y: 50 }, side: { x: 50, y: 50 }, front: { x: 50, y: 50 } }
             });
             savePositions(true);
@@ -1523,6 +1541,83 @@
             renderEcuList();
             renderEcuPins();
             closeAddEcuModal();
+            AndroidHelper.showToast("새 노드가 추가되었습니다.");
+        }
+
+        function openEditEcuModal() {
+            if (!selectedEcuId) {
+                AndroidHelper.showToast("수정할 노드를 먼저 선택해주세요.");
+                return;
+            }
+            const node = ecuData.find(n => n.id === selectedEcuId);
+            if (!node) return;
+
+            document.getElementById('editEcuId').value = node.id;
+            document.getElementById('editEcuType').value = node.type === 'connector' ? '커넥터 (Connector)' : '제어기 (ECU)';
+            document.getElementById('editEcuName').value = node.name || '';
+            document.getElementById('editEcuDesc').value = node.desc || '';
+            document.getElementById('editEcuDomain').value = node.domain;
+            
+            const linksContainer = document.getElementById('editEcuLinksContainer');
+            linksContainer.innerHTML = '';
+            ecuData.forEach(n => {
+                if (n.id === node.id) return;
+                const isChecked = (node.links || []).includes(n.id);
+                linksContainer.innerHTML += `
+                    <label class="flex items-center space-x-2 text-slate-300">
+                        <input type="checkbox" value="${n.id}" class="edit-ecu-link-checkbox rounded bg-slate-900 border-slate-700 text-appleBlue focus:ring-appleBlue" ${isChecked ? 'checked' : ''}>
+                        <span class="break-keep">${n.id} (${n.name})</span>
+                    </label>
+                `;
+            });
+            document.getElementById('editEcuModal').classList.remove('hidden');
+        }
+
+        function closeEditEcuModal() {
+            document.getElementById('editEcuModal').classList.add('hidden');
+        }
+
+        function submitEditEcu() {
+            if (!selectedEcuId) return;
+            const node = ecuData.find(n => n.id === selectedEcuId);
+            if (!node) return;
+
+            node.name = document.getElementById('editEcuName').value.trim();
+            node.desc = document.getElementById('editEcuDesc').value.trim();
+            node.domain = document.getElementById('editEcuDomain').value;
+            
+            const checkedLinks = Array.from(document.querySelectorAll('.edit-ecu-link-checkbox:checked')).map(cb => cb.value);
+            node.links = checkedLinks;
+
+            savePositions(true);
+            renderEcuList();
+            renderEcuPins();
+            closeEditEcuModal();
+            
+            // Re-render detail panel with new data
+            selectECU(selectedEcuId);
+            AndroidHelper.showToast("노드 정보가 성공적으로 수정되었습니다.");
+        }
+
+        function deleteSelectedEcu() {
+            if (!selectedEcuId) {
+                AndroidHelper.showToast("삭제할 노드를 먼저 선택해주세요.");
+                return;
+            }
+            if (confirm(`정말 '${selectedEcuId}' 노드를 삭제하시겠습니까?`)) {
+                ecuData = ecuData.filter(n => n.id !== selectedEcuId);
+                ecuData.forEach(n => {
+                    if (n.links) n.links = n.links.filter(l => l !== selectedEcuId);
+                });
+                selectedEcuId = null;
+                savePositions(true);
+                updateHeaderNodeCount();
+                renderEcuList();
+                renderEcuPins();
+                document.getElementById('detailPanelContent').classList.add('hidden');
+                document.getElementById('detailPanelEmpty').classList.remove('hidden');
+                AndroidHelper.showToast("노드가 삭제되었습니다.");
+            }
         }
 
         function openDtcManager(nodeId, x, y) {
