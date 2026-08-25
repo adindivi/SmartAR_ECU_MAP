@@ -611,6 +611,25 @@
         </div>
     </div>
 
+    <!-- 모던한 삭제 확인 모달 -->
+    <div id="deleteConfirmModal" class="fixed inset-0 bg-black/80 z-50 flex items-center justify-center hidden backdrop-blur-sm transition-opacity duration-300">
+        <div class="bg-slate-900 border border-slate-700/80 rounded-2xl p-6 w-[85%] max-w-[320px] shadow-2xl relative modal-animate-enter flex flex-col items-center">
+            <div class="w-12 h-12 rounded-full bg-rose-500/20 flex items-center justify-center border border-rose-500/30 mb-4">
+                <i class="fa-solid fa-trash-can text-rose-500 text-xl"></i>
+            </div>
+            
+            <h3 class="text-base font-bold text-white text-center mb-1.5" id="deleteConfirmTitle">제어기 삭제</h3>
+            <p class="text-xs text-slate-400 text-center mb-5 break-keep leading-relaxed" id="deleteConfirmDesc">
+                선택한 노드를 삭제하시겠습니까?
+            </p>
+            
+            <div class="flex space-x-2.5 w-full">
+                <button onclick="closeDeleteConfirmModal()" class="flex-1 py-2 rounded-full bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white transition font-semibold text-xs">취소</button>
+                <button onclick="executeDeleteEcu()" class="flex-1 py-2 rounded-full bg-rose-600 text-white hover:bg-rose-500 shadow-lg shadow-rose-900/50 transition font-semibold text-xs">삭제하기</button>
+            </div>
+        </div>
+    </div>
+
     <div id="dtcManagerPopup" class="fixed hidden bg-slate-950/95 border border-slate-800 rounded-2xl w-60 p-4 shadow-2xl z-45 select-none backdrop-blur-md">
         <div class="flex items-center justify-between pb-2 border-b border-slate-850 mb-2">
             <h4 id="dtcPopupTitle" class="text-[11px] font-bold text-white flex items-center space-x-1.5">
@@ -1604,20 +1623,30 @@
                 AndroidHelper.showToast("삭제할 노드를 먼저 선택해주세요.");
                 return;
             }
-            if (confirm(`정말 '${selectedEcuId}' 노드를 삭제하시겠습니까?`)) {
-                ecuData = ecuData.filter(n => n.id !== selectedEcuId);
-                ecuData.forEach(n => {
-                    if (n.links) n.links = n.links.filter(l => l !== selectedEcuId);
-                });
-                selectedEcuId = null;
-                savePositions(true);
-                updateHeaderNodeCount();
-                renderEcuList();
-                renderEcuPins();
-                document.getElementById('detailPanelContent').classList.add('hidden');
-                document.getElementById('detailPanelEmpty').classList.remove('hidden');
-                AndroidHelper.showToast("노드가 삭제되었습니다.");
-            }
+            document.getElementById('deleteConfirmDesc').innerHTML = `<span class="text-white font-bold">'${selectedEcuId}'</span> 노드를 정말 삭제하시겠습니까?`;
+            document.getElementById('deleteConfirmModal').classList.remove('hidden');
+        }
+
+        function closeDeleteConfirmModal() {
+            document.getElementById('deleteConfirmModal').classList.add('hidden');
+        }
+
+        function executeDeleteEcu() {
+            if (!selectedEcuId) return;
+            
+            ecuData = ecuData.filter(n => n.id !== selectedEcuId);
+            ecuData.forEach(n => {
+                if (n.links) n.links = n.links.filter(l => l !== selectedEcuId);
+            });
+            selectedEcuId = null;
+            savePositions(true);
+            updateHeaderNodeCount();
+            renderEcuList();
+            renderEcuPins();
+            document.getElementById('detailPanelContent').classList.add('hidden');
+            document.getElementById('detailPanelEmpty').classList.remove('hidden');
+            closeDeleteConfirmModal();
+            AndroidHelper.showToast("노드가 성공적으로 삭제되었습니다.");
         }
 
         function openDtcManager(nodeId, x, y) {
