@@ -1,0 +1,2780 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Smart AR ECU MAP - Apple Style</title>
+    
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- A-Frame 및 Mind-AR CDN (Image tracking & A-Frame integration) -->
+    <script src="https://aframe.io/releases/1.2.0/aframe.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.1.4/dist/mindar-image.prod.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.1.4/dist/mindar-image-aframe.prod.js"></script>
+    <script src="https://unpkg.com/aframe-look-at-component@0.8.0/dist/aframe-look-at-component.min.js"></script>
+    
+    <!-- 모바일 크롬 개발자 콘솔 에러 로그 디버거 (일시적 주입) -->
+    <script src="https://cdn.jsdelivr.net/npm/eruda"></script>
+    <script>eruda.init();</script>
+    
+    <!-- FontAwesome 아이콘 CDN -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Google Fonts: Inter & JetBrains Mono (Apple SF Pro 가독성에 최적 매칭) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', '-apple-system', 'BlinkMacSystemFont', '"Segoe UI"', 'Roboto', 'sans-serif'],
+                        mono: ['"JetBrains Mono"', 'SFMono-Regular', 'Menlo', 'monospace'],
+                    },
+                    colors: {
+                        // Apple Premium Dark Theme Colors
+                        arBg: '#000000',           // 딥 블랙 (Canvas Dark)
+                        arPanel: '#1d1d1f',        // 슬레이트 다크 그레이 (Surface)
+                        arBorder: '#323236',       // 차분한 라인 구분색 (Border)
+                        appleBlue: '#0071e3',      // 대표 액션 칼라 (Primary Blue)
+                        appleLink: '#2997ff',      // 다크 모드용 라이트 블루 (Link)
+                        appleTextMuted: '#8e8e93',  // 세컨더리 텍스트
+                        appleLightGray: '#f5f5f7'  // 라이트 액센트 영역
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <style>
+        /* 모바일 사파리 등 스크롤 튐 방지 및 뷰포트 고정 */
+        html, body {
+            overflow: hidden;
+            position: fixed;
+            width: 100%;
+            height: 100%;
+            -webkit-user-select: none;
+            user-select: none;
+            background-color: #000000;
+        }
+
+        /* 드래그 가능 핀의 바디 공통 스타일 */
+        .pin-body {
+            will-change: transform, left, top;
+            transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.12s cubic-bezier(0.2, 0, 0, 1);
+        }
+
+        /* 텍스트 줄바꿈 기형화 방지 */
+        .break-keep {
+            word-break: keep-all;
+        }
+
+        /* 아코디언 여닫힘 애니메이션 효과 */
+        .accordion-content {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .accordion-content.open {
+            max-height: 1000px;
+        }
+        .chevron-icon {
+            transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .chevron-icon.rotated {
+            transform: rotate(180deg);
+        }
+
+        /* 모바일 바텀시트 / 드로어 슬라이딩 연출 */
+        aside {
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        @media (max-width: 767px) {
+            /* 좌측 목록 드로어 (왼쪽 -> 오른쪽) */
+            aside.w-\\[300px\\] {
+                position: fixed;
+                left: 0;
+                top: 64px;
+                bottom: 0;
+                width: 280px;
+                z-index: 45;
+                transform: translateX(-100%);
+            }
+            /* 우측 상세 드로어 (바텀 -> 탑 슬라이드 시트 구조로 전환) */
+            aside.w-\\[340px\\] {
+                position: fixed;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                width: 100% !important;
+                height: 70vh;
+                z-index: 45;
+                transform: translateY(100%);
+                border-top-left-radius: 18px;
+                border-top-right-radius: 18px;
+                border-left-width: 0;
+                border-top-width: 1px;
+            }
+            /* 활성화 시 오픈 */
+            aside.drawer-open {
+                transform: none !important;
+            }
+        }
+
+        /* 모바일 드로어 오픈용 반투명 배경 가림막 */
+        #drawerOverlay {
+            position: fixed;
+            inset: 0;
+            background-color: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(4px);
+            z-index: 40;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+        }
+        #drawerOverlay.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        /* 가로 모드 강제 유도 모바일 CSS 미디어 쿼리 */
+        @media (orientation: landscape) {
+            #landscapeGuidanceOverlay {
+                display: none !important;
+            }
+        }
+
+        /* 모달 팝업 애니메이션 */
+        @keyframes modalEnter {
+            from { opacity: 0; transform: scale(0.96); }
+            to { opacity: 1; transform: scale(1); }
+        }
+        .modal-animate-enter {
+            animation: modalEnter 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+
+        /* 실시간 통신 흐름 애니메이션 (은은한 유동 점선 표현) */
+        @keyframes dashflow {
+            to { stroke-dashoffset: -20; }
+        }
+        .flow-line {
+            stroke-dasharray: 6,4;
+            animation: dashflow 1.2s linear infinite;
+        }
+        .flow-line-fast {
+            stroke-dasharray: 6,3;
+            animation: dashflow 0.6s linear infinite;
+        }
+
+        /* 모의 카메라 스캔 레이저 바 효과 (AI 느낌 최소화, 얇고 은은한 화이트 라인) */
+        .laser-scan-bar {
+            position: absolute;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.6), transparent);
+            z-index: 15;
+            top: 0;
+            pointer-events: none;
+            opacity: 0;
+        }
+        .laser-scan-bar.active {
+            opacity: 1;
+            animation: scanMotion 1.6s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+        }
+        @keyframes scanMotion {
+            0% { top: 5%; }
+            50% { top: 95%; }
+            100% { top: 5%; }
+        }
+
+        /* Diagnostic Grid Table 호버 효과 */
+        #ecuTableModalBody tr {
+            will-change: background-color;
+            transition: background-color 0.12s ease;
+        }
+        #ecuTableModalBody tr:hover {
+            background-color: rgba(29, 29, 31, 0.8);
+            cursor: pointer;
+        }
+        #ecuTableModalBody tr:nth-child(even) {
+            background-color: rgba(29, 29, 31, 0.3);
+        }
+    </style>
+</head>
+<body class="h-screen w-screen flex flex-col font-sans antialiased bg-arBg text-slate-200">
+    <!-- 모바일 바텀시트 가림막 overlay -->
+    <div id="drawerOverlay" onclick="toggleMobileDrawer()"></div>
+
+    <!-- AR 가로 모드 권장 안내 오버레이 -->
+    <div id="landscapeGuidanceOverlay" class="hidden fixed inset-0 bg-black/95 z-[100] flex flex-col items-center justify-center text-center p-6 select-none">
+        <div class="relative w-24 h-24 mb-6 flex items-center justify-center">
+            <div class="absolute inset-0 border border-dashed border-slate-600 rounded-full animate-spin" style="animation-duration: 10s;"></div>
+            <i class="fa-solid fa-mobile-screen-button text-white text-4xl animate-bounce"></i>
+            <i class="fa-solid fa-rotate-right absolute text-appleLink text-lg top-2 right-2"></i>
+        </div>
+        <h3 class="text-lg font-bold text-white mb-2 tracking-wide">화면을 가로로 회전해 주세요</h3>
+        <p class="text-xs text-appleTextMuted leading-relaxed max-w-xs break-keep">
+            차량 형상 인식 및 제어기 오버레이 배치는 **가로(Landscape) 촬영 모드**에 최적화되어 있습니다.
+        </p>
+        <button onclick="exitArModeForce()" class="mt-6 px-4 py-2 rounded-full bg-slate-900 border border-slate-800 hover:border-white text-xs text-slate-300 font-semibold transition-all">
+            AR 모드 종료
+        </button>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- [상단 헤더 바] 네비게이션 및 기능 컨트롤 영역 -->
+    <!-- ========================================== -->
+    <header class="h-16 border-b border-arBorder bg-arPanel/90 px-4 flex items-center justify-between z-30 shrink-0 backdrop-blur-md">
+        <!-- 로고 및 타이틀 -->
+        <div class="flex items-center space-x-3">
+            <i class="fa-solid fa-microchip text-appleLink text-xl"></i>
+            <div>
+                <h1 class="text-base md:text-lg font-bold text-white tracking-wide">Smart AR ECU MAP <span class="text-[10px] text-white font-mono bg-slate-800 px-2 py-0.5 rounded-full border border-slate-700 ml-1">AR</span></h1>
+            </div>
+        </div>
+
+        <!-- 우측 컨트롤러 (AR 토글, HUD 반사, 뷰 전환, 초기화) -->
+        <div class="flex items-center space-x-2 md:space-x-3">
+            <!-- [모바일 전용] 목록 및 상세 드로어 토글 버튼 -->
+            <button onclick="toggleMobileDrawer('left')" class="px-2.5 py-1.5 rounded-full border border-slate-800 bg-slate-900/40 text-slate-400 hover:text-white text-xs font-semibold flex items-center space-x-1 sm:hidden transition-colors">
+                <i class="fa-solid fa-list-ul"></i>
+            </button>
+            <button onclick="toggleMobileDrawer('right')" class="px-2.5 py-1.5 rounded-full border border-slate-800 bg-slate-900/40 text-slate-400 hover:text-white text-xs font-semibold flex items-center space-x-1 sm:hidden transition-colors">
+                <i class="fa-solid fa-circle-info"></i>
+            </button>
+
+            <!-- AR 카메라 스캔 연동 토글 단추 -->
+            <button id="arModeToggleBtn" onclick="toggleArMode()" class="px-3 py-1.5 rounded-full border border-slate-700 bg-slate-900/40 hover:bg-slate-800 hover:border-slate-500 text-xs text-slate-300 font-semibold flex items-center space-x-2 transition-all">
+                <i class="fa-solid fa-camera" id="arCameraIcon"></i>
+                <span id="arModeBtnText">AR 모드 OFF</span>
+            </button>
+
+            <!-- AR 전용 필터 모드 선택기 (전체 노드 / 선택 노드) -->
+            <div id="arFilterModeGroup" class="hidden bg-slate-900/80 p-1 rounded-full border border-slate-800 flex text-xs">
+                <button id="arFilterAllBtn" onclick="setArFilterMode('all')" class="px-3 py-1 rounded-full bg-appleLink text-white font-bold transition">전체 노드</button>
+                <button id="arFilterSelBtn" onclick="setArFilterMode('selected')" class="px-3 py-1 rounded-full text-slate-400 hover:text-white transition">선택 노드</button>
+            </div>
+
+            <!-- 시점(View) 전환 버튼들 -->
+            <div id="viewControllerGroup" class="bg-slate-900/80 p-1 rounded-full border border-slate-800 flex text-xs">
+                <button id="viewTopBtn" onclick="switchView('top')" class="px-3 py-1 rounded-full bg-slate-800 text-white font-bold shadow transition">TOP (탑뷰)</button>
+                <button id="viewSideBtn" onclick="switchView('side')" class="px-3 py-1 rounded-full text-slate-400 hover:text-white transition">SIDE (측면)</button>
+                <button id="viewFrontBtn" onclick="switchView('front')" class="px-3 py-1 rounded-full text-slate-400 hover:text-white transition">FRONT (전방)</button>
+            </div>
+
+            <!-- 노드 추가 버튼 -->
+            <button onclick="openAddEcuModal()" class="px-3 py-1.5 rounded-full border border-slate-700 bg-slate-900/40 hover:bg-slate-800 text-xs font-semibold flex items-center space-x-1.5 transition-all">
+                <i class="fa-solid fa-plus text-appleLink"></i>
+                <span class="hidden sm:inline">노드 추가</span>
+            </button>
+
+            <!-- 위치 세팅 모드 잠금/해제 버튼 -->
+            <button onclick="requestEditMode()" class="px-3 py-1.5 rounded-full border border-slate-700 bg-slate-900/40 hover:bg-slate-800 text-xs font-semibold flex items-center space-x-1.5 transition-all">
+                <i class="fa-solid fa-lock" id="editLockIcon"></i>
+                <span id="editBtnText" class="hidden md:inline">위치 세팅 (잠금)</span>
+            </button>
+            
+            <!-- [전체 테이블] 일괄 조회 모달 토글 버튼 -->
+            <button onclick="openEcuTableModal()" title="전체 테이블 뷰" class="px-2.5 py-1.5 rounded-full bg-slate-900/40 hover:bg-slate-800 text-slate-450 border border-slate-700 transition">
+                <i class="fa-solid fa-table-list"></i>
+            </button>
+
+            <!-- 공장 초기화 버튼 -->
+            <button onclick="resetPositions()" title="공장 초기화" class="px-2.5 py-1.5 rounded-full bg-slate-900/40 hover:bg-rose-950/40 text-slate-455 border border-slate-700 hover:border-rose-800 transition">
+                <i class="fa-solid fa-rotate-left"></i>
+            </button>
+        </div>
+    </header>
+
+    <!-- ========================================== -->
+    <!-- [메인 워크스페이스] 좌측/중앙/우측 3분할 레이아웃 -->
+    <!-- ========================================== -->
+    <div class="flex-1 flex overflow-hidden relative">
+        
+        <!-- [좌측 영역] 도메인 퀵 필터 및 제어기 아코디언 목록 -->
+        <aside class="w-[300px] border-r border-arBorder bg-arPanel/50 flex flex-col shrink-0 z-10 backdrop-blur-sm">
+            <!-- 도메인 분류 필터 헤더 -->
+            <div class="p-3 border-b border-arBorder">
+                <h2 class="text-xs font-bold text-appleTextMuted uppercase tracking-wider mb-2">Domain Filter</h2>
+                <div class="grid grid-cols-3 gap-1 text-[10px]">
+                    <button id="filter-ALL" onclick="filterByDomain('ALL')" class="py-1 rounded bg-slate-800 text-white font-bold border border-slate-700 transition">ALL</button>
+                    <button id="filter-POWERTRAIN" onclick="filterByDomain('POWERTRAIN')" class="py-1 rounded bg-slate-900/45 text-slate-400 border border-slate-850 hover:border-slate-700 transition">PE</button>
+                    <button id="filter-CHASSIS" onclick="filterByDomain('CHASSIS')" class="py-1 rounded bg-slate-900/45 text-slate-400 border border-slate-855 hover:border-slate-700 transition">CHASSIS</button>
+                    <button id="filter-BODY" onclick="filterByDomain('BODY')" class="py-1 rounded bg-slate-900/45 text-slate-400 border border-slate-855 hover:border-slate-700 transition">BODY</button>
+                    <button id="filter-INFOTAINMENT" onclick="filterByDomain('INFOTAINMENT')" class="py-1 rounded bg-slate-900/45 text-slate-400 border border-slate-855 hover:border-slate-700 transition">INFO</button>
+                    <button id="filter-NETWORK" onclick="filterByDomain('NETWORK')" class="py-1 rounded bg-slate-900/45 text-slate-400 border border-slate-855 hover:border-slate-700 transition">NET</button>
+                </div>
+            </div>
+
+            <!-- 제어기 검색바 -->
+            <div class="p-2 border-b border-arBorder/60 bg-slate-900/10">
+                <div class="relative">
+                    <i class="fa-solid fa-magnifying-glass absolute left-2.5 top-2.5 text-xs text-slate-500"></i>
+                    <input type="text" id="searchInput" oninput="handleSearch()" placeholder="제어기 검색..." 
+                           class="w-full bg-slate-950 border border-slate-800 rounded-lg pl-8 pr-3 py-1.5 text-xs text-slate-200 placeholder-slate-600 focus:outline-none focus:border-slate-500 transition-colors">
+                </div>
+            </div>
+
+            <!-- 스크롤 가능한 제어기 목록 컨테이너 -->
+            <div class="flex-1 overflow-y-auto p-2" id="ecuListContainer">
+                <!-- JS 렌더러에 의해 동적 렌더링 -->
+            </div>
+        </aside>
+
+        <!-- [중앙 캔버스] WebRTC 카메라 피드 + 2.5D 투명 도면 + SVG 통신망 오버레이 -->
+        <main class="flex-1 relative bg-black flex items-center justify-center overflow-hidden">
+            
+            <!-- Mind-AR / A-Frame 통합 씬 컨테이너 -->
+            <div id="arSceneContainer" class="absolute inset-0 w-full h-full z-0 hidden">
+                <a-scene id="arScene" mindar-image="imageTargetSrc: ./car_image/tire_targets.mind; autoStart: false; uiLoading: no; uiScanning: no; uiError: no; filterMinCF: 0.0001; filterBeta: 0.0001;" 
+                         embedded vr-mode-ui="enabled: false" device-orientation-permission-ui="enabled: false"
+                         style="width: 100%; height: 100%; position: absolute;">
+                    
+                    <a-camera id="arCamera" position="0 0 0" look-controls="enabled: false"></a-camera>
+                    
+                    <!-- 앞바퀴 휠 감지 앵커 (targetIndex: 0) -->
+                    <!-- ignore-rotation 속성을 적용하여 바퀴 회전 각도에 관계없이 차체 정렬 수평을 강제 고정 -->
+                    <a-entity mindar-image-target="targetIndex: 0" id="wheelAnchor" ignore-rotation>
+                        <!-- JS로 3D 핀들이 이 공간 하위에 동적 생성됨 -->
+                    </a-entity>
+                </a-scene>
+            </div>
+
+            <!-- Real-Time WebRTC 카메라 백그라운드 레이어 -->
+            <video id="arVideo" autoplay playsinline muted class="absolute inset-0 w-full h-full object-cover z-0 hidden"></video>
+
+
+            <!-- 2) [전방 전용] Mind-AR / A-Frame 씬 컨테이너 -->
+            <div id="arSceneContainerFront" class="absolute inset-0 w-full h-full z-0 hidden">
+                <a-scene id="arSceneFront" mindar-image="imageTargetSrc: ./car_image/logo_targets.mind; autoStart: false; uiLoading: no; uiScanning: no; uiError: no; filterMinCF: 0.0001; filterBeta: 0.0001;" 
+                         embedded vr-mode-ui="enabled: false" device-orientation-permission-ui="enabled: false"
+                         style="width: 100%; height: 100%; position: absolute;">
+                    
+                    <!-- look-at 바인딩 추적을 위해 동일한 id="arCameraFront" 카메라 사용 -->
+                    <a-camera id="arCameraFront" position="0 0 0" look-controls="enabled: false"></a-camera>
+
+                    <!-- 전방 기아 로고 감지 앵커 (targetIndex: 0 / 전방 정합용) -->
+                    <a-entity mindar-image-target="targetIndex: 0" id="logoAnchor">
+                        <!-- JS로 3D 전방 핀들이 이 공간 하위에 동적 생성됨 -->
+                    </a-entity>
+                </a-scene>
+            </div>
+
+            <!-- 카메라 로드 실패 시 가상 홀로그램 노이즈 가시화 캔버스 (데모용) -->
+            <canvas id="virtualCameraCanvas" class="absolute inset-0 w-full h-full z-0 pointer-events-none"></canvas>
+
+            <!-- 포커스 얼라인먼트 가이드라인 오버레이 -->
+            <div id="arFocusGuide" class="hidden absolute inset-0 z-10 pointer-events-none flex items-center justify-center">
+                <div class="relative w-[90%] h-[82%] border border-white/10 rounded-2xl flex items-center justify-center">
+                    <div class="focus-guide-corner border-t-[3px] border-l-[3px] border-white/60 absolute w-6 h-6 top-4 left-4"></div>
+                    <div class="focus-guide-corner border-t-[3px] border-r-[3px] border-white/60 absolute w-6 h-6 top-4 right-4"></div>
+                    <div class="focus-guide-corner border-b-[3px] border-l-[3px] border-white/60 absolute w-6 h-6 bottom-4 left-4"></div>
+                    <div class="focus-guide-corner border-b-[3px] border-r-[3px] border-white/60 absolute w-6 h-6 bottom-4 right-4"></div>
+                    
+                    <div class="w-8 h-[1px] bg-white/30 absolute"></div>
+                    <div class="h-8 w-[1px] bg-white/30 absolute"></div>
+                    
+                    <!-- 스캔 실행 버튼 (사용자 정렬 판단 트리거) -->
+                    <button id="arScanBtn" onclick="triggerArScanning()" class="pointer-events-auto absolute bottom-8 px-5 py-2.5 rounded-full border border-slate-700 bg-black/80 hover:bg-slate-900 text-white text-xs font-semibold tracking-wider transition-all flex items-center space-x-2">
+                        <i class="fa-solid fa-expand-arrows-alt animate-pulse text-appleLink"></i>
+                        <span>AR 인식 완료</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- 레이저 스캔 빔 라인 -->
+            <div id="laserScanBar" class="laser-scan-bar"></div>
+
+            <!-- 실시간 인식 상태 인디케이터 알림창 -->
+            <div id="arStatusIndicator" class="hidden absolute top-4 left-1/2 transform -translate-x-1/2 bg-black/90 border border-slate-800 text-white font-mono text-xs px-5 py-3 rounded-full z-30 shadow-2xl tracking-wider text-center flex items-center space-x-2.5">
+                <span id="arIndicatorPing" class="inline-block w-2 h-2 rounded-full bg-appleLink animate-ping"></span>
+                <span id="arStatusText">차량을 카메라 중앙에 맞춰 주세요.</span>
+            </div>
+
+            <!-- 맵 중앙을 감싸는 반응형 도면 뷰포트 (비율 유지) -->
+            <div id="vehicleSvgWrapper" class="relative w-[92%] h-[92%] flex items-center justify-center">
+                
+                <!-- 차량 도면 뷰 이미지 3종 -->
+                <img id="svgTopView" src="car_image/Top_view.png" class="w-full h-full object-contain pointer-events-none transition-opacity duration-300 filter blur-[1px] opacity-20" />
+                <img id="svgSideView" src="car_image/side_view.png" class="hidden w-full h-full object-contain pointer-events-none transition-opacity duration-300 filter blur-[1px] opacity-20" />
+                <img id="svgFrontView" src="car_image/Front_view.png" class="hidden w-full h-full object-contain pointer-events-none transition-opacity duration-300 filter blur-[1px] opacity-20" />
+
+                <!-- 전륜 타이어 정밀 조준 가이드 링 (앞바퀴 중심 17.5%, 68.5% 위치에 고정 오버레이) -->
+                <div id="arTireGuideRing" class="hidden absolute w-[10%] aspect-square border-2 border-dashed border-appleLink rounded-full z-30 pointer-events-none flex items-center justify-center transform -translate-x-1/2 -translate-y-1/2" style="left: 17.5%; top: 68.5%;">
+                    <!-- 중심 조준 십자선 -->
+                    <div class="absolute w-3 h-[1.5px] bg-appleLink"></div>
+                    <div class="absolute h-3 w-[1.5px] bg-appleLink"></div>
+                    <!-- 깜빡이는 펄스 레이더 애니메이션 링 -->
+                    <div class="absolute inset-0 border-2 border-appleLink rounded-full animate-ping opacity-60"></div>
+                </div>
+
+                <!-- 통신망 연결선 그리기 레이어 -->
+                <svg id="svgNetworkConnections" class="absolute top-0 left-0 w-full h-full pointer-events-none z-10 transition-opacity duration-300"></svg>
+
+                <!-- 제어기 노드 배치 컨테이너 -->
+                <div id="ecuPinsContainer" class="absolute top-0 left-0 w-full h-full z-20 pointer-events-none transition-opacity duration-300"></div>
+            </div>
+        </main>
+
+        <!-- [우측 영역] 특정 제어기 상세 모니터링 및 센서값 모니터링 패널 -->
+        <aside class="w-[340px] border-l border-arBorder bg-arPanel/70 flex flex-col shrink-0 z-10 backdrop-blur-md">
+            
+            <!-- 우측 패널 상단 고정 헤더 -->
+            <div class="p-4 border-b border-arBorder flex items-center justify-between bg-slate-900/20">
+                <span id="detailPanelHeaderTitle" class="text-xs font-bold text-slate-300 tracking-wider flex items-center">
+                    <i class="fa-solid fa-circle-nodes text-appleLink mr-2"></i>
+                    상세 모니터링
+                </span>
+                <!-- 모바일 전용 닫기 버튼 -->
+                <button onclick="toggleMobileDrawer('right')" class="md:hidden text-slate-400 hover:text-white">&times;</button>
+            </div>
+
+            <!-- 디테일 내용 -->
+            <div id="detailPanelContent" class="p-4 flex-1 overflow-y-auto hidden space-y-3">
+                
+                <!-- 1. 제어기 메인 프로필 박스 (수직 마진 mb-3으로 최적화) -->
+                <div class="rounded-2xl border border-arBorder bg-black/40 p-4 mb-3">
+                    <div class="flex items-center justify-between mb-2">
+                        <span id="detailEcuId" class="text-[26px] font-bold font-mono text-white">MDPS</span>
+                    </div>
+                    <div id="detailEcuName" class="text-sm font-semibold text-slate-200 mb-1 break-keep">전동식 파워 스티어링</div>
+                    <div id="detailEcuDesc" class="text-[11px] text-appleTextMuted leading-relaxed break-keep">엔진 분사, 점화 및 연료 효율 통제 제어기</div>
+                    
+                    <div class="mt-4 pt-3 border-t border-slate-800/80 flex justify-end space-x-2">
+                        <button onclick="openEditEcuModal()" class="px-3 py-1.5 rounded-full bg-slate-900 border border-slate-800 hover:border-slate-600 text-slate-300 hover:text-white text-[11px] font-semibold flex items-center space-x-1.5 transition">
+                            <i class="fa-solid fa-pen-to-square text-appleLink"></i>
+                            <span>수정</span>
+                        </button>
+                        <button onclick="deleteSelectedEcu()" class="px-3 py-1.5 rounded-full bg-rose-950/40 border border-rose-900/60 hover:bg-rose-900/50 text-rose-400 hover:text-rose-200 text-[11px] font-semibold flex items-center space-x-1.5 transition">
+                            <i class="fa-solid fa-trash-can"></i>
+                            <span>삭제</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 배경 투명도 슬라이더 (AR 모드 활성화 시 표시됨) -->
+                <div id="arSeeThroughWrapper" class="hidden border border-arBorder rounded-2xl bg-black/40 p-4 mb-3">
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="text-[11px] font-bold text-appleLink uppercase tracking-wider flex items-center space-x-1.5">
+                            <i class="fa-solid fa-eye-slash"></i>
+                            <span>배경 투명도</span>
+                        </span>
+                        <span id="arSeeThroughVal" class="text-[10px] font-mono text-appleTextMuted">100% (불투명)</span>
+                    </div>
+                    <input type="range" id="arSeeThroughSlider" min="10" max="100" value="100" oninput="handleSeeThrough(this.value)" class="w-full h-1.5 bg-slate-850 rounded-lg appearance-none cursor-pointer accent-appleLink focus:outline-none">
+                    <div class="flex justify-between text-[9px] text-slate-500 font-mono mt-1">
+                        <span>투명 (10%)</span>
+                        <span>불투명 (100%)</span>
+                    </div>
+                </div>
+
+                <!-- 2. 제어기 상세 정보 및 실물 사진 (아코디언, 타이틀 및 마진 mb-3 최적화) -->
+                <div id="ecuDetailAccordionWrapper" class="border border-arBorder rounded-2xl bg-black/40 overflow-hidden mb-3">
+                    <button onclick="toggleAccordion('ecuDetail')" class="w-full px-4 py-2.5 flex items-center justify-between bg-slate-900/40 hover:bg-slate-900/60 transition-colors focus:outline-none">
+                        <span id="detailEcuSectionTitle" class="text-[12px] font-bold text-slate-300 uppercase tracking-wider flex items-center">
+                            <i class="fa-solid fa-camera text-appleLink mr-2 text-xs"></i>
+                            <span>IMAGE</span>
+                        </span>
+                        <i id="ecuDetailChevron" class="fa-solid fa-chevron-down text-slate-500 text-xs chevron-icon rotated"></i>
+                    </button>
+                    <div id="ecuDetailContent" class="accordion-content open">
+                        <div class="p-3 space-y-3">
+                            <!-- 제어기 실물 사진 (이미지 엑박 폴백 장치 내장) -->
+                            <div class="bg-slate-900/40 rounded-xl p-3 border border-slate-800/80">
+                                <div id="detailEcuPhotoTitle" class="text-[11px] text-slate-500 mb-2">IMAGE</div>
+                                <div class="relative rounded-lg overflow-hidden border border-slate-800/80 bg-[#0c1322] aspect-[4/3] flex items-center justify-center group">
+                                    
+                                    <!-- 실물 이미지 파일 로드 실패 시 미등록 플레이스홀더 디스플레이로 자동 전환 -->
+                                    <img id="detailEcuImg" src="./ecu_module.jpg" alt="ECU Photo" 
+                                         onload="this.style.display='block'; document.getElementById('hudFallbackScanner').classList.add('hidden');" 
+                                         onerror="this.style.display='none'; document.getElementById('hudFallbackScanner').classList.remove('hidden');" 
+                                         class="w-full h-full object-cover opacity-85 group-hover:scale-105 transition-transform duration-500">
+                                    
+                                    <!-- 미니멀 이미지 미등록 안내 폴백 요소 -->
+                                    <div id="hudFallbackScanner" class="hidden absolute inset-0 flex flex-col items-center justify-center bg-slate-900/95 z-0 select-none">
+                                        <i class="fa-regular fa-image text-slate-500 text-3xl mb-2"></i>
+                                        <span class="text-[11px] text-slate-400 font-semibold break-keep">이미지가 등록되지 않았습니다.</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 3. 연결된 제어기 네트워크 버튼 목록 (아코디언, 타이틀 및 2열 그리드 최적화) -->
+                <div class="border border-arBorder rounded-2xl bg-black/40 overflow-hidden">
+                    <button onclick="toggleAccordion('networkDetail')" class="w-full px-4 py-2.5 flex items-center justify-between bg-slate-900/40 hover:bg-slate-900/60 transition-colors focus:outline-none">
+                        <span id="detailNetworkSectionTitle" class="text-[12px] font-bold text-slate-300 uppercase tracking-wider flex items-center">
+                            <i class="fa-solid fa-network-wired text-appleLink mr-2 text-xs"></i>
+                            <span>연결된 제어기 네트워크</span>
+                        </span>
+                        <i id="networkDetailChevron" class="fa-solid fa-chevron-down text-slate-500 text-xs chevron-icon rotated"></i>
+                    </button>
+                    <div id="networkDetailContent" class="accordion-content open">
+                        <div class="p-4">
+                            <div id="detailConnectedList" class="flex flex-wrap gap-2"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- [제어기 미선택 시 표시되는 안내 화면] -->
+            <div id="detailPanelEmpty" class="flex-1 flex flex-col items-center justify-center text-slate-500 text-sm">
+                <i class="fa-solid fa-circle-info text-3xl mb-3 opacity-40 text-appleTextMuted"></i>
+                <p class="text-xs text-appleTextMuted">노드를 클릭하여 상세 확인</p>
+            </div>
+        </aside>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- [비밀번호 입력 모달창] 위치 세팅 모드 진입 전 보안 확인용 -->
+    <!-- ========================================== -->
+    <div id="passwordModal" class="fixed inset-0 bg-black/80 z-50 flex items-center justify-center hidden backdrop-blur-sm">
+        <div class="bg-arPanel border border-arBorder p-6 rounded-2xl w-80 shadow-2xl modal-animate-enter">
+            <h3 class="text-sm font-bold text-white mb-4 tracking-wide flex items-center">
+                <i class="fa-solid fa-shield-halved text-appleLink mr-2"></i>
+                관리자 비밀번호 입력
+            </h3>
+            <input type="password" id="pwInput" placeholder="비밀번호(디폴트: 0000)" 
+                   class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white mb-3 placeholder-slate-650 focus:outline-none focus:border-slate-500 transition-colors font-mono">
+            <div id="pwError" class="text-rose-500 text-[10px] mb-3 hidden break-keep">비밀번호가 일치하지 않습니다. 다시 입력해 주세요.</div>
+            <div class="flex space-x-2 text-xs font-semibold">
+                <button onclick="verifyPassword()" class="flex-1 py-2 rounded-full bg-appleBlue text-white hover:bg-opacity-90 transition">확인</button>
+                <button onclick="closePasswordModal()" class="flex-1 py-2 rounded-full bg-slate-800 text-slate-300 hover:bg-slate-700 transition">취소</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- [신규 노드 생성 모달창] 위치 세팅 활성화 중 노드 생성 팝업 -->
+    <!-- ========================================== -->
+    <div id="addEcuModal" class="fixed inset-0 bg-black/80 z-50 flex items-center justify-center hidden backdrop-blur-sm">
+        <div class="bg-arPanel border border-arBorder p-6 rounded-2xl w-96 max-h-[85vh] flex flex-col shadow-2xl modal-animate-enter">
+            <h3 class="text-sm font-bold text-white mb-4 tracking-wide pb-2 border-b border-slate-800 flex items-center justify-between">
+                <span class="flex items-center"><i class="fa-solid fa-plus text-appleLink mr-2"></i>신규 노드(ECU/커넥터) 생성</span>
+                <button onclick="closeAddEcuModal()" class="text-slate-500 hover:text-white text-lg transition">&times;</button>
+            </h3>
+            
+            <div class="flex-1 overflow-y-auto space-y-3.5 pr-1 text-xs">
+                <!-- 노드 유형 분기 -->
+                <div>
+                    <label class="block text-slate-400 font-semibold mb-1">노드 유형 선택</label>
+                    <select id="newEcuType" onchange="toggleAddModalTypeFields()" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-slate-500 transition-colors">
+                        <option value="ecu">ECU (제어기)</option>
+                        <option value="connector">CONNECTOR (커넥터)</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label id="lblNewEcuId" class="block text-slate-400 font-semibold mb-1">제어기 ID (영문 약어, 예: MCU2)</label>
+                    <input type="text" id="newEcuId" placeholder="예: MCU2" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-slate-500 transition-colors uppercase font-mono">
+                </div>
+                
+                <div>
+                    <label id="lblNewEcuName" class="block text-slate-400 font-semibold mb-1">제어기 명칭 (국문 풀네임)</label>
+                    <input type="text" id="newEcuName" placeholder="예: 구동모터제어유닛 2" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-slate-500 transition-colors break-keep">
+                </div>
+                
+                <div>
+                    <label id="lblNewEcuDesc" class="block text-slate-400 font-semibold mb-1">제어기 설명 (영문명 / 코드)</label>
+                    <input type="text" id="newEcuDesc" placeholder="예: Motor Control Unit 2" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-slate-500 transition-colors">
+                </div>
+                
+                <div id="newEcuDomainWrapper">
+                    <label class="block text-slate-400 font-semibold mb-1">소속 도메인 대분류</label>
+                    <select id="newEcuDomain" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-slate-500 transition-colors">
+                        <option value="POWERTRAIN">POWERTRAIN (파워트레인 / PE)</option>
+                        <option value="CHASSIS">CHASSIS (섀시 제어계)</option>
+                        <option value="BODY">BODY (바디 편의 기능)</option>
+                        <option value="INFOTAINMENT">INFOTAINMENT (인포테인먼트 Cockpit)</option>
+                        <option value="NETWORK">NETWORK (차량 통신 중앙 게이트웨이)</option>
+                    </select>
+                </div>
+
+                <!-- 통신 네트워크 연결 체크박스 덤프 -->
+                <div>
+                    <label class="block text-slate-400 font-semibold mb-1.5">네트워크 통신선 연결 선택 (다중 선택)</label>
+                    <div id="newEcuLinksContainer" class="grid grid-cols-2 gap-1.5 max-h-36 overflow-y-auto bg-slate-950 p-2.5 rounded-lg border border-slate-800 text-[11px]">
+                        <!-- JS 렌더러에 의해 체크박스 덤프 -->
+                    </div>
+                </div>
+            </div>
+
+            <div class="mt-4 pt-3 border-t border-slate-850 flex space-x-2 text-xs font-semibold shrink-0">
+                <button onclick="submitNewEcu()" class="flex-1 py-2 rounded-full bg-appleBlue text-white hover:bg-opacity-90 transition">추가 완료</button>
+                <button onclick="closeAddEcuModal()" class="flex-1 py-2 rounded-full bg-slate-850 text-slate-300 hover:bg-slate-800 transition">취소</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- [제어기 정보 편집 모달창] 노드 클릭 상세창 내부 수정용 -->
+    <!-- ========================================== -->
+    <div id="editEcuModal" class="fixed inset-0 bg-black/80 z-50 flex items-center justify-center hidden backdrop-blur-sm">
+        <div class="bg-arPanel border border-arBorder p-6 rounded-2xl w-96 max-h-[85vh] flex flex-col shadow-2xl modal-animate-enter">
+            <h3 class="text-sm font-bold text-white mb-4 tracking-wide pb-2 border-b border-slate-800 flex items-center justify-between">
+                <span class="flex items-center"><i class="fa-solid fa-pen-to-square text-appleLink mr-2"></i>노드(ECU/커넥터) 정보 수정</span>
+                <button onclick="closeEditEcuModal()" class="text-slate-500 hover:text-white text-lg transition">&times;</button>
+            </h3>
+            
+            <div class="flex-1 overflow-y-auto space-y-3.5 pr-1 text-xs">
+                <div>
+                    <label class="block text-slate-400 font-semibold mb-1">노드 유형</label>
+                    <input type="text" id="editEcuType" disabled class="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-slate-500 font-semibold font-sans cursor-not-allowed select-none">
+                </div>
+
+                <div>
+                    <label id="lblEditEcuId" class="block text-slate-400 font-semibold mb-1">제어기 ID (수정 불가)</label>
+                    <input type="text" id="editEcuId" disabled class="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-slate-500 font-mono cursor-not-allowed select-none">
+                </div>
+                
+                <div>
+                    <label id="lblEditEcuName" class="block text-slate-400 font-semibold mb-1">제어기 명칭</label>
+                    <input type="text" id="editEcuName" placeholder="예: 구동모터제어유닛 2" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-slate-500 transition-colors break-keep">
+                </div>
+                
+                <div>
+                    <label id="lblEditEcuDesc" class="block text-slate-400 font-semibold mb-1">제어기 설명</label>
+                    <input type="text" id="editEcuDesc" placeholder="예: Motor Control Unit 2" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-slate-500 transition-colors">
+                </div>
+                
+                <div id="editEcuDomainWrapper">
+                    <label class="block text-slate-400 font-semibold mb-1">소속 도메인 대분류</label>
+                    <select id="editEcuDomain" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-slate-500 transition-colors">
+                        <option value="POWERTRAIN">POWERTRAIN (파워트레인 / PE)</option>
+                        <option value="CHASSIS">CHASSIS (섀시 제어계)</option>
+                        <option value="BODY">BODY (바디 편의 기능)</option>
+                        <option value="INFOTAINMENT">INFOTAINMENT (인포테인먼트 Cockpit)</option>
+                        <option value="NETWORK">NETWORK (차량 통신 중앙 게이트웨이)</option>
+                    </select>
+                </div>
+
+                <!-- 통신 네트워크 연결 체크박스 덤프 -->
+                <div>
+                    <label class="block text-slate-400 font-semibold mb-1.5">네트워크 통신선 연결 선택 (다중 선택)</label>
+                    <div id="editEcuLinksContainer" class="grid grid-cols-2 gap-1.5 max-h-36 overflow-y-auto bg-slate-950 p-2.5 rounded-lg border border-slate-800 text-[11px]">
+                        <!-- JS 렌더러에 의해 체크박스 덤프 -->
+                    </div>
+                </div>
+            </div>
+
+            <div class="mt-4 pt-3 border-t border-slate-850 flex space-x-2 text-xs font-semibold shrink-0">
+                <button onclick="submitEditEcu()" class="flex-1 py-2 rounded-full bg-appleBlue text-white hover:bg-opacity-90 transition">수정 완료</button>
+                <button onclick="closeEditEcuModal()" class="flex-1 py-2 rounded-full bg-slate-850 text-slate-300 hover:bg-slate-800 transition">취소</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- [DTC 고장코드 단독 매니저] 우클릭 또는 롱터치 팝업 -->
+    <!-- ========================================== -->
+    <div id="dtcManagerPopup" class="fixed hidden bg-slate-950/95 border border-slate-800 rounded-2xl w-60 p-4 shadow-2xl z-40 select-none backdrop-blur-md">
+        <div class="flex items-center justify-between pb-2 border-b border-slate-850 mb-2">
+            <h4 id="dtcPopupTitle" class="text-[11px] font-bold text-white flex items-center space-x-1.5">
+                <i class="fa-solid fa-triangle-exclamation text-rose-500 animate-pulse text-[10px]"></i>
+                <span>제어기 DTC 목록</span>
+            </h4>
+            <button onclick="closeDtcManager()" class="text-slate-500 hover:text-white transition text-xs">&times;</button>
+        </div>
+        
+        <ul id="dtcList" class="space-y-1.5 max-h-40 overflow-y-auto mb-3 text-xs pr-1"></ul>
+        
+        <div class="flex space-x-1.5 text-xs">
+            <input type="text" id="newDtcInput" placeholder="DTC 코드 (예: P0A80)" class="flex-1 bg-slate-900/40 border border-slate-800 rounded-lg px-2.5 py-1.5 text-white placeholder-slate-650 focus:outline-none focus:border-slate-500 transition-colors uppercase font-mono text-[10px]">
+            <button id="addDtcBtn" class="bg-appleBlue hover:bg-opacity-90 text-white px-3 py-1.5 rounded-lg font-bold transition flex items-center justify-center">
+                <i class="fa-solid fa-plus text-xs"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- [전체 테이블 모달창] 일괄 조회 팝업 -->
+    <!-- ========================================== -->
+    <div id="ecuTableModal" class="fixed inset-0 bg-black/70 z-50 flex items-center justify-center hidden backdrop-blur-md transition-all duration-300">
+        <div class="bg-arPanel border border-arBorder p-6 rounded-2xl w-[90vw] max-w-4xl h-[80vh] flex flex-col shadow-2xl modal-animate-enter backdrop-blur-xl">
+            <!-- 1. 헤더 (타이틀 & 엑셀 업로드 & 닫기) -->
+            <div class="flex items-center justify-between pb-4 border-b border-slate-800/80">
+                <h3 class="text-base font-bold text-white flex items-center space-x-2 tracking-wide break-keep">
+                    <i class="fa-solid fa-table-list text-appleLink"></i>
+                    <span>전체 목록 (ECU List)</span>
+                </h3>
+                <div class="flex items-center space-x-3">
+                    <input type="file" id="ecuCsvFileInput" accept=".csv" class="hidden" onchange="handleCsvUpload(this)">
+                    <button onclick="triggerCsvExport()" class="px-3 py-1.5 rounded-full bg-slate-900 border border-slate-800 hover:border-slate-600 text-slate-350 hover:text-white text-xs transition flex items-center space-x-1.5 focus:outline-none mr-2">
+                        <i class="fa-solid fa-file-export text-emerald-400"></i>
+                        <span class="text-[11px] font-semibold">엑셀 추출</span>
+                    </button>
+                    <button onclick="triggerCsvUpload()" class="px-3 py-1.5 rounded-full bg-slate-900 border border-slate-800 hover:border-slate-600 text-slate-350 hover:text-white text-xs transition flex items-center space-x-1.5 focus:outline-none">
+                        <i class="fa-solid fa-file-import text-appleLink"></i>
+                        <span class="text-[11px] font-semibold">엑셀 업로드</span>
+                    </button>
+                    <button onclick="closeEcuTableModal()" class="text-slate-400 hover:text-white text-lg font-bold transition focus:outline-none">&times;</button>
+                </div>
+            </div>
+
+            <!-- 2. 퀵 검색바 -->
+            <div class="py-3">
+                <div class="relative">
+                    <i class="fa-solid fa-magnifying-glass absolute left-3 top-2.5 text-xs text-slate-500"></i>
+                    <input type="text" id="modalTableSearch" oninput="filterModalTable()" placeholder="제어기 ID, 도메인, 명칭, DTC 고장코드 실시간 필터링..." 
+                           class="w-full bg-slate-950 border border-slate-800 rounded-lg pl-9 pr-4 py-2 text-xs text-slate-200 placeholder-slate-650 focus:outline-none focus:border-slate-500 transition-all font-sans">
+                </div>
+            </div>
+
+            <!-- 3. 테이블 리스트 영역 -->
+            <div class="flex-1 overflow-y-auto border border-slate-800 rounded-xl bg-slate-900/10">
+                <table class="w-full text-left border-collapse text-xs">
+                    <thead class="sticky top-0 bg-slate-950 text-slate-400 font-semibold border-b border-slate-800 z-10">
+                        <tr class="break-keep">
+                            <th class="p-3">ID</th>
+                            <th class="p-3">도메인 분류</th>
+                            <th class="p-3">제어기/커넥터 명칭</th>
+                            <th class="p-3">등록된 DTC</th>
+                            <th class="p-3">연결 노드</th>
+                        </tr>
+                    </thead>
+                    <tbody id="ecuTableModalBody" class="divide-y divide-slate-850 text-slate-300">
+                        <!-- JS 렌더링에 의해 동적으로 생성됨 -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- Javascript 핵심 로직 -->
+    <!-- ========================================== -->
+    <script>
+        // 바퀴 마커가 회전하여 검출되더라도 3D 핀 앵커는 회전하지 않고 수평(0 0 0)을 유지하게 상쇄하는 커스텀 컴포넌트
+        if (typeof AFRAME !== 'undefined') {
+            AFRAME.registerComponent('ignore-rotation', {
+                tick: function () {
+                    this.el.setAttribute('rotation', '0 0 0');
+                }
+            });
+        }
+
+        const CONFIG = {
+            ADMIN_PASSWORD: '0000',
+            DRAG_LIMIT: { MIN: 5, MAX: 95 },
+            DEFAULT_COORD: 50,
+            DEBOUNCE_DELAY: 100,
+            VEHICLE_MARGIN_RATIO: 0.92
+        };
+
+        const DEFAULT_ECU_DATA = [{"id":"ADAS","name":"운전자보조주차시스템","desc":"ADAS_PRK","domain":"ADAS","type":"ecu","status":"normal","links":["FR_Radar","Camera","CCU","HOD","CON_01"],"coords":{"top":{"x":42.592592592592595,"y":40.04045763447086},"side":{"x":43.2,"y":43},"front":{"x":41.5,"y":42}},"dtcs":["E0101"]},{"id":"AIRCON","name":"에어컨","desc":"AIRCON","domain":"BODY","status":"normal","links":["CCU","Cooler"],"coords":{"top":{"x":31,"y":48},"side":{"x":33,"y":53},"front":{"x":49,"y":59}},"type":"ecu"},{"id":"BMS","name":"배터리 매니지먼트 시스템","desc":"Battery Management System","domain":"POWERTRAIN","type":"ecu","status":"fault","links":["MCU","ICCU","VPC","CON_02"],"coords":{"top":{"x":79.97685185185185,"y":64.00559788092333},"side":{"x":77.6,"y":63},"front":{"x":62,"y":70}},"dtcs":["P0A80"]},{"id":"BCM","name":"BCM","desc":"Body Control Module","domain":"BODY","type":"ecu","status":"normal","links":["CCU","IAU","SMK","AIRCON","DAU","PSD","PTG","PDC","ISCM","CON_04"],"coords":{"top":{"x":43,"y":58},"side":{"x":46,"y":51},"front":{"x":57,"y":54}}},{"id":"IAU","name":"IAU","desc":"Identity Authentication Unit","domain":"BODY","type":"ecu","status":"normal","links":["BCM","SMK","UWB-BLE","CON_04"],"coords":{"top":{"x":70.37037037037037,"y":63},"side":{"x":70.37037037037037,"y":48.443818500110034},"front":{"x":63,"y":48.443818500110034}}},{"id":"SMK","name":"SMK","desc":"Smart Key","domain":"BODY","status":"normal","links":["BCM","IAU"],"coords":{"top":{"x":47,"y":59},"side":{"x":48,"y":49},"front":{"x":66,"y":54}},"type":"ecu"},{"id":"TPMS","name":"TPMS","desc":"Tire Pressure Monitoring System","domain":"CHASSIS","status":"normal","links":["BRK","CCU"],"coords":{"top":{"x":46.06481481481482,"y":44.086520273482314},"side":{"x":39,"y":54},"front":{"x":43,"y":57}},"type":"ecu"},{"id":"BRK","name":"제동제어","desc":"Brake","domain":"CHASSIS","status":"warning","links":["CCU","EBB","TPMS","STR"],"coords":{"top":{"x":39,"y":49},"side":{"x":36,"y":52},"front":{"x":39,"y":55}},"type":"ecu"},{"id":"CCU","name":"통신 통합 제어 유닛","desc":"Central Communication Unit","domain":"NETWORK","status":"normal","links":["VPC","BRK","ADAS","BCM","CCNC","PLCM"],"coords":{"top":{"x":50.92592592592593,"y":44.70899144871485},"side":{"x":42,"y":50},"front":{"x":46,"y":54}},"type":"ecu"},{"id":"CLU","name":"클러스터모듈","desc":"Cluster Module","domain":"INFOTAINMENT","type":"ecu","status":"normal","links":["CCNC","CCU","CON_03"],"coords":{"top":{"x":36,"y":46},"side":{"x":35,"y":42},"front":{"x":46,"y":48}}},{"id":"CCNC","name":"차량 커넥티드 내비게이션 유닛","desc":"Connected Car Navigation Cockpit","domain":"INFOTAINMENT","type":"ecu","status":"normal","links":["CCU","CLU","DCU","ETCS","VESS","WPC","CON_03"],"coords":{"top":{"x":33.7962962962963,"y":56.22470819051668},"side":{"x":35.1,"y":40},"front":{"x":55.3,"y":45}}},{"id":"CRR","name":"측방레이더","desc":"Corner Radar","domain":"ADAS","status":"normal","links":["ADAS"],"coords":{"top":{"x":47,"y":36},"side":{"x":49,"y":39},"front":{"x":42,"y":47}},"type":"ecu"},{"id":"DCU","name":"데이터 커넥티비티 유닛","desc":"Data Connectivity Unit","domain":"INFOTAINMENT","status":"normal","links":["CCNC"],"coords":{"top":{"x":34.375,"y":62.449419942842},"side":{"x":37,"y":32},"front":{"x":61.111111111111114,"y":38.3286619025814}},"type":"ecu"},{"id":"DAU","name":"운전석도어모듈","desc":"Door Area Unit","domain":"BODY","status":"normal","links":["BCM","DHSM_FL","DHSM_FR"],"coords":{"top":{"x":83.56481481481481,"y":49.6887608505751},"side":{"x":80.9,"y":40.50731101589526},"front":{"x":49.7,"y":39.2}}},{"id":"DHSM_FL","name":"도어 핸들 센서 모듈","desc":"Door Handle Sensor Module-Front L","domain":"BODY","status":"normal","links":["DAU"],"coords":{"top":{"x":49.107142857142854,"y":38.73327108621226},"side":{"x":49.2,"y":42},"front":{"x":40.3,"y":51}},"type":"ecu"},{"id":"DHSM_FR","name":"도어 핸들 센서 모듈","desc":"Door Handle Sensor Module-Front R","domain":"BODY","status":"normal","links":["DAU"],"coords":{"top":{"x":21.180555555555554,"y":65.09492243758025},"side":{"x":23.5,"y":35.371923820226876},"front":{"x":62.9,"y":35.371923820226876}},"type":"ecu"},{"id":"E-Shifter","name":"전자식변속레버","desc":"E-Shifter","domain":"POWERTRAIN","status":"normal","links":["VPC"],"coords":{"top":{"x":64.93055555555556,"y":47.97696511868564},"side":{"x":47,"y":58},"front":{"x":50,"y":65}},"type":"ecu"},{"id":"EBB","name":"제동제어","desc":"EBB(ABS/ESP)","domain":"CHASSIS","status":"normal","links":["BRK"],"coords":{"top":{"x":26.38888888888889,"y":64.31683346853958},"side":{"x":35,"y":58},"front":{"x":31.01851851851852,"y":62.449419942842}},"type":"ecu"},{"id":"ETCS","name":"전자통행료 지불 시스템","desc":"Electronic Toll Collection System","domain":"INFOTAINMENT","status":"normal","links":["CCNC"],"coords":{"top":{"x":37,"y":54},"side":{"x":32,"y":34},"front":{"x":51,"y":38}}},{"id":"FR_Radar","name":"전방레이더","desc":"Front Radar","domain":"ADAS","status":"normal","links":["ADAS"],"coords":{"top":{"x":32.29166666666667,"y":33.34889250072115},"side":{"x":33.7,"y":44},"front":{"x":35.7,"y":45}},"type":"ecu"},{"id":"Camera","name":"전방카메라","desc":"Front View Camera","domain":"ADAS","type":"ecu","status":"normal","links":["ADAS","CON_01"],"coords":{"top":{"x":55.55555555555556,"y":36.616866170691935},"side":{"x":38,"y":38},"front":{"x":40,"y":38}}},{"id":"HOD","name":"손 감지 기능","desc":"Hands on Detection","domain":"ADAS","status":"normal","links":["STR","ADAS"],"coords":{"top":{"x":37,"y":36},"side":{"x":32,"y":48},"front":{"x":36,"y":43}},"type":"ecu"},{"id":"ICCU","name":"통합충전제어장치","desc":"Integrated Charging Control Unit","domain":"POWERTRAIN","type":"ecu","status":"normal","links":["BMS","VCMS","PLCM","CON_02"],"coords":{"top":{"x":70.83333333333334,"y":45.64269821156364},"side":{"x":56,"y":59},"front":{"x":40,"y":70}}},{"id":"ISCM","name":"통합 안전 제어 모듈","desc":"Integrated Safety Control Module","domain":"BODY","status":"normal","links":["BCM"],"coords":{"top":{"x":42,"y":61},"side":{"x":49,"y":65},"front":{"x":58,"y":58}},"type":"ecu"},{"id":"Cooler","name":"로컬 쿨러 컨트롤러","desc":"Local Cooler Controler","domain":"BODY","status":"normal","links":["AIRCON"],"coords":{"top":{"x":21.296296296296298,"y":45.95393379917991},"side":{"x":23.6,"y":56},"front":{"x":46.5,"y":63}},"type":"ecu"},{"id":"MCU","name":"모터제어유닛-앞","desc":"Motor Control Unit","domain":"POWERTRAIN","type":"ecu","status":"normal","links":["BMS","VPC","CON_05"],"coords":{"top":{"x":61.92129629629629,"y":59.49268186048747},"side":{"x":52,"y":62},"front":{"x":42,"y":66}}},{"id":"OCS","name":"승객구분시스템","desc":"Occupant Classification System","domain":"BODY","status":"normal","links":["BCM"],"coords":{"top":{"x":37,"y":64},"side":{"x":80.0925925925926,"y":44.086520273482314},"front":{"x":33.101851851851855,"y":45.798316005371774}},"type":"ecu"},{"id":"PIM","name":"PBV 인터페이스 모듈","desc":"PBV Interface Module","domain":"BODY","status":"normal","links":["BCM"],"coords":{"top":{"x":50,"y":60},"side":{"x":49,"y":53},"front":{"x":63,"y":60}},"type":"ecu"},{"id":"PSD","name":"파워슬라이딩도어","desc":"Power Sliding Door","domain":"BODY","status":"normal","links":["BCM"],"coords":{"top":{"x":46,"y":68},"side":{"x":63.07870370370371,"y":33.50451029452928},"front":{"x":72.80092592592592,"y":52.956734520545886}},"type":"ecu"},{"id":"PTG","name":"파워테일게이트","desc":"Power Gate","domain":"BODY","status":"normal","links":["BCM"],"coords":{"top":{"x":73.14814814814815,"y":57.936503922406146},"side":{"x":71.3,"y":41.12978219112779},"front":{"x":56.8,"y":45}},"type":"ecu"},{"id":"PDC","name":"파워넷 도메인 컨트롤","desc":"Power-net Domain Control","domain":"BODY","status":"normal","links":["BCM"],"coords":{"top":{"x":38,"y":58},"side":{"x":41,"y":58},"front":{"x":55,"y":58}},"type":"ecu"},{"id":"PLCM","name":"전력선 통신 모듈","desc":"Powerline Communication Module","domain":"NETWORK","status":"normal","links":["ICCU","CCU"],"coords":{"top":{"x":52.083333333333336,"y":37.861808521157},"side":{"x":52,"y":55},"front":{"x":40,"y":61}},"type":"ecu"},{"id":"SCU","name":"전자식변속제어","desc":"SBW Control Unit (SCU)","domain":"POWERTRAIN","status":"normal","links":["VPC"],"coords":{"top":{"x":59.02777777777778,"y":50.93370320104016},"side":{"x":43,"y":65},"front":{"x":52,"y":70}},"type":"ecu"},{"id":"SAC","name":"확장성 보조 컨트롤러","desc":"Scalability Assist Controller","domain":"BODY","status":"normal","links":["BCM"],"coords":{"top":{"x":19.8,"y":52.64549893292963},"side":{"x":22.22222222222222,"y":59.02582847906307},"front":{"x":52.3,"y":61.1}},"type":"ecu"},{"id":"SHVCU-F","name":"시트열선통풍제어유닛-앞","desc":"Seat heater Ventilation Unit-Front","domain":"BODY","status":"normal","links":["BCM"],"coords":{"top":{"x":57.407407407407405,"y":39.729222046854595},"side":{"x":57.407407407407405,"y":48.132582912493774},"front":{"x":57,"y":48.132582912493774}},"type":"ecu"},{"id":"SHVCU-R","name":"시트열선통풍제어유닛-뒤","desc":"Seat heater Ventilation Unit-Rear","domain":"BODY","status":"normal","links":["BCM"],"coords":{"top":{"x":27.083333333333332,"y":51.55617437627269},"side":{"x":28.9,"y":40.974164397319655},"front":{"x":51.3,"y":51}},"type":"ecu"},{"id":"STR","name":"파워스티어링","desc":"Steering","domain":"CHASSIS","status":"normal","links":["BRK","HOD","SWRC"],"coords":{"top":{"x":31.828703703703702,"y":67.27357155089412},"side":{"x":33.3,"y":47.82134732487751},"front":{"x":64.8,"y":47.82134732487751}},"type":"ecu"},{"id":"SWRC","name":"스티어링휠리모트컨트롤","desc":"Steering Wheel Remote Control","domain":"BODY","status":"normal","links":["STR"],"coords":{"top":{"x":24.421296296296298,"y":33.81574588214555},"side":{"x":26.4,"y":49.377525262958834},"front":{"x":36.1,"y":49.377525262958834}},"type":"ecu"},{"id":"UWB-BLE","name":"초광대역/저전력 블루투스 모듈","desc":"Ultra Wide Band Bluetooth LE","domain":"BODY","status":"normal","links":["IAU"],"coords":{"top":{"x":52,"y":65.9},"side":{"x":49.38775510204081,"y":35.010506429163534},"front":{"x":49.38775510204081,"y":37.861808521157}},"type":"ecu"},{"id":"CON_01","name":"전방 ADAS 분기 커넥터","desc":"Front ADAS Harness Connector","domain":"CONNECTOR","type":"connector","status":"normal","links":["ADAS","Camera"],"coords":{"top":{"x":61.92129629629629,"y":35.99439499545941},"side":{"x":61,"y":29.458447655517826},"front":{"x":38,"y":40.50731101589526}}},{"id":"CON_02","name":"엔진룸 전원 커넥터","desc":"Engine Room Power Harness","domain":"CONNECTOR","type":"connector","status":"normal","links":["BMS","ICCU"],"coords":{"top":{"x":74.07407407407408,"y":40.35169322208713},"side":{"x":60,"y":63},"front":{"x":41,"y":75}}},{"id":"CON_03","name":"인포테인먼트 허브 커넥터","desc":"Infotainment Hub Connector","domain":"CONNECTOR","type":"connector","status":"normal","links":["CCNC","CLU"],"coords":{"top":{"x":21.75925925925926,"y":38.017426314965135},"side":{"x":24,"y":38},"front":{"x":39.7,"y":44}}},{"id":"CON_04","name":"바디 컨트롤 메인 커넥터","desc":"Body Control Main Harness","domain":"CONNECTOR","type":"connector","status":"normal","links":["BCM","IAU"],"coords":{"top":{"x":43,"y":64},"side":{"x":44,"y":53},"front":{"x":70.02314814814815,"y":58.40335730383054}}},{"id":"CON_05","name":"파워트레인 CAN 커넥터","desc":"Powertrain CAN Gateway Harness","domain":"CONNECTOR","type":"connector","status":"normal","links":["VPC","MCU"],"coords":{"top":{"x":65.04629629629629,"y":54.35729466481909},"side":{"x":63.9,"y":61},"front":{"x":53.7,"y":63}}},{"id":"VCMS","name":"차량 충전 관리 제어기","desc":"Vehicle Charging Management System","domain":"POWERTRAIN","status":"normal","links":["ICCU","VPC"],"coords":{"top":{"x":75,"y":50.62246761342389},"side":{"x":58,"y":56},"front":{"x":47,"y":72}},"type":"ecu","dtcs":[]},{"id":"VPC","name":"차량 플랫폼 컨트롤러","desc":"Vehicle Platform Controller","domain":"POWERTRAIN","type":"ecu","status":"normal","links":["CCU","BMS","MCU","ICCU","VCMS","SCU","E-Shifter","CON_05"],"coords":{"top":{"x":64.58333333333334,"y":42.21910674778472},"side":{"x":50,"y":59},"front":{"x":47,"y":67}},"dtcs":[]},{"id":"VESS","name":"가상엔진사운드","desc":"Virtual Engine Sound System","domain":"POWERTRAIN","status":"normal","links":["CCNC"],"coords":{"top":{"x":94.09722222222221,"y":62.449419942842},"side":{"x":94.09722222222221,"y":55.44661922147601},"front":{"x":62.449419942842,"y":55.44661922147601}},"type":"ecu","dtcs":[]},{"id":"WPC","name":"무선충전시스템","desc":"Wireless Power Charger","domain":"BODY","status":"normal","links":["CCNC"],"coords":{"top":{"x":37.03703703703704,"y":38.7955152840058},"side":{"x":38.1,"y":47},"front":{"x":40.4,"y":43}},"type":"ecu","dtcs":[]}];
+
+        let ecuData = [];
+        let currentView = 'top';
+        let activeDomain = 'ALL';
+        let searchQuery = '';
+        let selectedEcuId = null;
+        
+        let isEditMode = false;
+        let draggingNodeId = null;
+        let activeDtcNodeId = null;
+
+        // AR 모드 관련 상태 변수
+        let isArMode = false;
+        let isScanning = false;
+        let isArAligned = false;
+
+        let videoStream = null;
+        let arSeeThroughOpacity = 1.0; 
+        let canvasAnimationId = null; 
+
+        const VEHICLE_BOUNDS = {
+            top: { xMin: 12.0, xMax: 88.0, yMin: 15.0, yMax: 85.0 },
+            side: { xMin: 15.0, xMax: 85.0, yMin: 20.0, yMax: 75.0 },
+            front: { xMin: 20.0, xMax: 80.0, yMin: 15.0, yMax: 80.0 }
+        };
+
+        /**
+         * @function mapRange
+         * @description 지정된 입력 범위 내의 수치 값을 출력 타겟 범위의 수치로 선형 사상(Mapping)하고 반올림합니다.
+         *              3D 투영 시 한쪽 뷰포트의 범위 좌표를 다른 뷰포트 범위로 환산할 때 사용됩니다.
+         * @param {number} value - 변환할 원본 수치값
+         * @param {number} inMin - 원본 범위의 최소 한계값
+         * @param {number} inMax - 원본 범위의 최대 한계값
+         * @param {number} outMin - 타겟 범위의 최소 변환값
+         * @param {number} outMax - 타겟 범위의 최대 변환값
+         * @returns {number} 변환 및 소수점 첫째 자리 반올림이 완료된 수치값
+         * @example
+         * // 예제 1: 50을 0~100 범위에서 0~10 범위로 변환 (결과: 5)
+         * mapRange(50, 0, 100, 0, 10);
+         * // 예제 2: 75를 50~100 범위에서 200~400 범위로 변환 (결과: 300)
+         * mapRange(75, 50, 100, 200, 400);
+         * @caution 입력값이 원본 한계 범위를 벗어날 경우, inMin 또는 inMax 범위 내로 클램핑(Clamping) 처리됩니다.
+         */
+        function mapRange(value, inMin, inMax, outMin, outMax) {
+            const clamped = Math.max(inMin, Math.min(inMax, value));
+            const result = outMin + ((clamped - inMin) / (inMax - inMin)) * (outMax - outMin);
+            return Math.round(result * 10) / 10;
+        }
+
+        /**
+         * @function syncSharedAxes
+         * @description 2.5D 좌표 투영 동기화 함수로, 한 특정 시점(탑/측면/전면)에서 노드를 드래그하여 좌표가 변경되었을 때,
+         *              3차원 상의 축을 공유하는 다른 시점들의 대응 좌표를 실시간 계산하여 상호 업데이트합니다.
+         * @param {Object} node - 위치를 동기화할 대상 제어기/커넥터 노드 객체
+         * @param {string} view - 현재 드래그가 발생한 시점명 ('top', 'side', 'front')
+         * @param {number} x - 현재 드래그된 시점의 X 백분율 좌표 (0 ~ 100)
+         * @param {number} y - 현재 드래그된 시점의 Y 백분율 좌표 (0 ~ 100)
+         * @returns {void}
+         * @example
+         * // 예제 1: BMS 노드의 측면 뷰(side) 드래그 좌표 동기화
+         * syncSharedAxes(bmsNode, 'side', 45, 60);
+         * // 예제 2: ADAS 노드의 탑 뷰(top) 드래그 좌표 동기화
+         * syncSharedAxes(adasNode, 'top', 30, 40);
+         * @caution 차량 바운더리 한계선(VEHICLE_BOUNDS)을 기준으로 선형 사상하기 때문에, 범위 영역이 올바르게 정의되어 있어야 정확하게 투영됩니다.
+         */
+        function syncSharedAxes(node, view, x, y) {
+            if (!node || !node.coords) return;
+            const B = VEHICLE_BOUNDS;
+
+            if (view === 'side') {
+                const zVal = mapRange(y, B.side.yMin, B.side.yMax, B.top.yMax, B.top.yMin);
+                if (node.coords['top']) node.coords['top'].y = zVal;
+                if (node.coords['front']) node.coords['front'].x = x;
+            } else if (view === 'top') {
+                const zVal = mapRange(y, B.top.yMin, B.top.yMax, B.side.yMax, B.side.yMin);
+                if (node.coords['side']) node.coords['side'].y = zVal;
+                if (node.coords['front']) node.coords['front'].x = x;
+            } else if (view === 'front') {
+                if (node.coords['top']) node.coords['top'].x = x;
+                if (node.coords['side']) node.coords['side'].x = x;
+            }
+        }
+
+        window.onload = () => {
+            loadPositions();
+
+            updateHeaderNodeCount();
+            renderEcuList();
+            renderEcuPins();
+            setupDragAndDrop();
+
+            // DTC 등록 팝업 엔터 키 연동 및 수동 감지기 리스너
+            const addDtcBtn = document.getElementById('addDtcBtn');
+            const newDtcInput = document.getElementById('newDtcInput');
+            if (addDtcBtn && newDtcInput) {
+                const handleAddDtcAction = () => {
+                    const code = newDtcInput.value.trim().toUpperCase();
+                    if (!code) { alert("DTC 코드를 입력해 주세요."); return; }
+                    if (!/^[A-Z0-9]{4,6}$/.test(code)) { alert("올바른 DTC 규격이 아닙니다. (예: P0A80, C1200)"); return; }
+                    addDtc(activeDtcNodeId, code);
+                    newDtcInput.value = '';
+                };
+                
+                addDtcBtn.onclick = handleAddDtcAction;
+                newDtcInput.onkeydown = (event) => {
+                    if (event.key === 'Enter') handleAddDtcAction();
+                };
+            }
+
+            // ESC 키 누를 시 활성화된 테이블 모달 닫기
+            window.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape') {
+                    closeEcuTableModal();
+                }
+            });
+        };
+
+        function openEcuTableModal() {
+            const modalBody = document.getElementById('ecuTableModalBody');
+            if (!modalBody) return;
+            modalBody.innerHTML = '';
+
+            const sortedNodes = [...ecuData].sort((a, b) => a.id.localeCompare(b.id));
+
+            sortedNodes.forEach(node => {
+                const tr = document.createElement('tr');
+                tr.className = "hover:bg-slate-900 transition-colors cursor-pointer border-b border-slate-850";
+                
+                const dtcListText = (node.dtcs && node.dtcs.length > 0) ? node.dtcs.join(', ') : '-';
+                const connectionCount = node.links ? node.links.length : 0;
+                const domainLabel = node.type === 'connector' ? 'CONNECTOR' : node.domain;
+
+                tr.innerHTML = `
+                    <td class="p-3 font-mono font-bold text-white text-sm whitespace-nowrap">${node.id}</td>
+                    <td class="p-3 font-mono text-[10px] text-appleTextMuted whitespace-nowrap" style="color: ${getDomainColor(domainLabel)}">${domainLabel}</td>
+                    <td class="p-3 font-semibold text-slate-200 break-keep">${node.name}</td>
+                    <td class="p-3 font-mono text-rose-500 font-semibold break-all">${dtcListText}</td>
+                    <td class="p-3 font-mono text-appleTextMuted whitespace-nowrap">${connectionCount} EA</td>
+                `;
+
+                tr.onclick = () => {
+                    selectECU(node.id);
+                    closeEcuTableModal();
+                };
+
+                modalBody.appendChild(tr);
+            });
+
+            document.getElementById('ecuTableModal').classList.remove('hidden');
+            document.getElementById('modalTableSearch').value = '';
+            document.getElementById('modalTableSearch').focus();
+        }
+
+        function closeEcuTableModal() {
+            document.getElementById('ecuTableModal').classList.add('hidden');
+        }
+
+        function filterModalTable() {
+            const query = document.getElementById('modalTableSearch').value.toUpperCase().trim();
+            const rows = document.querySelectorAll('#ecuTableModalBody tr');
+
+            rows.forEach(row => {
+                const text = row.textContent.toUpperCase();
+                if (text.includes(query)) {
+                    row.style.display = '';
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+        }
+
+        function getDomainColor(domain) {
+            switch(domain) {
+                case 'POWERTRAIN': return '#ff9f0a'; // Apple Orange
+                case 'CHASSIS': return '#30d158';    // Apple Green
+                case 'BODY': return '#64d2ff';       // Apple Light Blue
+                case 'INFOTAINMENT': return '#bf5af2'; // Apple Purple
+                case 'NETWORK': return '#5e5ce6';    // Apple Indigo
+                case 'CONNECTOR': return '#ff453a';  // Apple Red
+                default: return '#8e8e93';           // Apple Secondary Gray
+            }
+        }
+
+        function getFilteredNodes() {
+            return ecuData.filter(node => {
+                const type = node.type || 'ecu';
+                const matchesDomain = (activeDomain === 'ALL') || 
+                                      (activeDomain === 'CONNECTOR' && type === 'connector') || 
+                                      (node.domain === activeDomain);
+                const matchesSearch = !searchQuery || 
+                                      node.id.toUpperCase().includes(searchQuery) || 
+                                      node.name.toUpperCase().includes(searchQuery) ||
+                                      (node.dtcs && node.dtcs.some(code => code.toUpperCase().includes(searchQuery)));
+                return matchesDomain && matchesSearch;
+            });
+        }
+
+        /**
+         * @function handleSearch
+         * @description 제어기 검색바(searchInput)에 입력이 발생할 때마다 실시간으로 검색어(searchQuery)를 갱신하고,
+         *              좌측 제어기 목록 및 중앙 2D 도면상의 핀 노드들을 즉시 필터링하여 재렌더링합니다.
+         * @returns {void}
+         */
+        function handleSearch() {
+            try {
+                const searchInputElement = document.getElementById('searchInput');
+                if (!searchInputElement) return;
+
+                // 입력받은 검색어를 대문자로 변환하여 전역 검색 변수 갱신
+                searchQuery = searchInputElement.value.trim().toUpperCase();
+
+                // 리스트 및 도면 핀들 실시간 다시 그리기
+                renderEcuList();
+                renderEcuPins();
+            } catch (error) {
+                console.error("handleSearch failed to execute:", error);
+            }
+        }
+
+        /**
+         * @function resizeVehicleCanvas
+         * @description 활성화된 차량 도면 이미지의 원본 해상도 종횡비(Aspect Ratio)를 실시간으로 감지하여
+         *              부모 뷰포트(vehicleSvgWrapper)의 물리적 크기를 화면에 꽉 차도록(여백 제외) 동적 조절합니다.
+         *              이를 통해 2.5D 투영 시 투명한 도화지 여백 오차로 인한 핀 정렬 쏠림을 완전 차단합니다.
+         * @returns {void}
+         * @throws {Error} DOM 탐색 실패 또는 경계 사각형 측정 실패 시 예외를 포착하여 안전하게 기록합니다.
+         * @example
+         * resizeVehicleCanvas();
+         */
+        function resizeVehicleCanvas() {
+            try {
+                const wrapper = document.getElementById('vehicleSvgWrapper');
+                if (!wrapper) return;
+                const mainArea = wrapper.parentElement;
+                if (!mainArea) return;
+
+                const activeImage = document.querySelector(`#vehicleSvgWrapper img:not(.hidden)`);
+                if (!activeImage) return;
+
+                const naturalWidth = activeImage.naturalWidth;
+                const naturalHeight = activeImage.naturalHeight;
+                
+                // 아직 이미지가 로드 전인 경우 온로드 이벤트를 체이닝하고 대기
+                if (!naturalWidth || !naturalHeight) {
+                    activeImage.onload = resizeVehicleCanvas;
+                    return;
+                }
+
+                const mainRect = mainArea.getBoundingClientRect();
+                const maxAvailableWidth = mainRect.width * CONFIG.VEHICLE_MARGIN_RATIO;
+                const maxAvailableHeight = mainRect.height * CONFIG.VEHICLE_MARGIN_RATIO;
+
+                const imageRatio = naturalWidth / naturalHeight;
+                const containerRatio = maxAvailableWidth / maxAvailableHeight;
+
+                let targetWidth, targetHeight;
+                if (imageRatio > containerRatio) {
+                    targetWidth = maxAvailableWidth;
+                    targetHeight = maxAvailableWidth / imageRatio;
+                } else {
+                    targetHeight = maxAvailableHeight;
+                    targetWidth = maxAvailableHeight * imageRatio;
+                }
+
+                wrapper.style.width = `${targetWidth}px`;
+                wrapper.style.height = `${targetHeight}px`;
+            } catch (error) {
+                console.error("차량 도면 종횡비 리사이징 중 오류 발생:", error);
+            }
+        }
+
+        /**
+         * @function switchView
+         * @description 현재 디스플레이되고 있는 2.5D 투영 시점(TOP, SIDE, FRONT)을 다른 시점으로 전환합니다.
+         *              뷰 컨트롤 버튼의 활성화 테마 스타일을 동적 제어하고, 해당 이미지 뷰 레이어만 토글합니다.
+         * @param {string} viewName - 전환할 신규 시점의 식별자 명칭 ('top', 'side', 'front')
+         * @returns {void}
+         * @example
+         * // 예제 1: 탑 뷰(TOP)로 시점 전환
+         * switchView('top');
+         * // 예제 2: 전방 뷰(FRONT)로 시점 전환
+         * switchView('front');
+         * @caution AR 스캔 모드가 켜진 상태(isArMode === true)에서는 탑 뷰(TOP)로의 전환이 시스템적으로 잠금 제한됩니다.
+         */
+        function switchView(viewName) {
+            if (isArMode && viewName === 'top') {
+                alert("AR 모드에서는 TOP(탑뷰)를 이용할 수 없습니다. SIDE 또는 FRONT를 선택해 주세요.");
+                return;
+            }
+            currentView = viewName;
+            
+            // AR 모드 중 시점 변경 시, 측면(SIDE) 뷰가 아닐 경우 타이어 가이드 링 강제 숨김
+            const guideRing = document.getElementById('arTireGuideRing');
+            if (guideRing) {
+                if (isArMode && !isArAligned && viewName === 'side') {
+                    guideRing.classList.remove('hidden');
+                } else {
+                    guideRing.classList.add('hidden');
+                }
+            }
+
+            ['Top', 'Side', 'Front'].forEach(v => {
+                const btn = document.getElementById(`view${v}Btn`);
+                if(v.toLowerCase() === viewName) {
+                    btn.className = "px-3 py-1 rounded-full bg-slate-800 text-white font-bold shadow transition";
+                } else {
+                    btn.className = "px-3 py-1 rounded-full text-slate-400 hover:text-white transition";
+                }
+            });
+
+            document.getElementById('svgTopView').classList.add('hidden');
+            document.getElementById('svgSideView').classList.add('hidden');
+            document.getElementById('svgFrontView').classList.add('hidden');
+            document.getElementById(`svg${viewName.charAt(0).toUpperCase() + viewName.slice(1)}View`).classList.remove('hidden');
+
+            applySeeThroughOpacity();
+            renderEcuPins();
+        }
+
+        /**
+         * @function renderEcuPins
+         * @description 현재 도메인 필터 및 검색 필터링 조건에 부합하는 제어기/커넥터 노드들을 탐색하여
+         *              2.5D 깊이감(투명도, 흐림 효과, 배율 스케일)을 연산하고 화면 상의 알맞은 백분율 위치에 핀을 렌더링합니다.
+         *              핀 클릭/드래그/우클릭(DTC 관리) 이벤트 수신기를 자동 바인딩합니다.
+         * @returns {void}
+         * @example
+         * // 예제 1: 핀 새로고침 호출
+         * renderEcuPins();
+         * @caution AR 모드가 활성화되어 있으나 위치 매핑 얼라인먼트가 미완료(isArAligned === false) 상태일 경우, 
+         *          핀의 노출을 숨기며 10ms 뒤 통신망 렌더링만 예외 스케줄링 처리합니다.
+         */
+        function renderEcuPins() {
+            // 캔버스 크기를 활성화된 이미지의 실제 해상도 비율로 강제 정렬
+            resizeVehicleCanvas();
+
+            const container = document.getElementById('ecuPinsContainer');
+            if (!container) return;
+            container.innerHTML = '';
+
+            if (isArMode && !isArAligned) {
+                container.style.opacity = '0';
+                setTimeout(renderNetworkConnections, 10);
+                return;
+            }
+
+            container.style.opacity = '1';
+            const filteredNodes = getFilteredNodes();
+            filteredNodes.forEach(node => {
+                const position = node.coords[currentView];
+                if(!position) return;
+
+                let depthOpacity = 1.0;
+                let depthBlur = 0;
+                let depthScale = 1.0;
+
+                // 2.5D 깊이감 연산
+                if (currentView === 'front') {
+                    const topPos = node.coords['top'];
+                    if (topPos) {
+                        const z = topPos.x;
+                        if (z > 70) { depthOpacity = 0.25; depthBlur = 1.2; depthScale = 0.86; }
+                        else if (z > 45) { depthOpacity = 0.65; depthBlur = 0.4; depthScale = 0.95; }
+                    }
+                } else if (currentView === 'side') {
+                    const topPos = node.coords['top'];
+                    if (topPos) {
+                        const z = topPos.y;
+                        if (z > 75) { depthOpacity = 0.25; depthBlur = 1.2; depthScale = 0.86; }
+                        else if (z > 50) { depthOpacity = 0.65; depthBlur = 0.4; depthScale = 0.95; }
+                    }
+                } else if (currentView === 'top') {
+                    const sidePos = node.coords['side'];
+                    if (sidePos) {
+                        const z = sidePos.y;
+                        if (z > 65) { depthOpacity = 0.30; depthBlur = 0.8; depthScale = 0.88; }
+                        else if (z > 45) { depthOpacity = 0.70; depthBlur = 0.4; depthScale = 0.95; }
+                    }
+                }
+
+                const pin = document.createElement('div');
+                pin.id = `pin-${node.id}`;
+                
+                const isSelected = (selectedEcuId === node.id);
+                const domainColor = getDomainColor(node.domain);
+                const borderStyle = isSelected ? `border-color: #fff; box-shadow: 0 0 8px ${domainColor};` : `border-color: ${domainColor};`;
+                
+                const zIndexClass = isSelected ? 'z-40' : 'z-30';
+                pin.className = `absolute pointer-events-none transition-all duration-200 flex flex-col items-center group ${zIndexClass}`;
+                
+                const baseScale = isSelected ? 1.25 : (draggingNodeId === node.id || isEditMode ? 1.0 : depthScale);
+                pin.style.transform = `translate(-50%, -50%) scale(${baseScale})`;
+                pin.style.left = `${position.x}%`;
+                pin.style.top = `${position.y}%`;
+                
+                if (draggingNodeId !== node.id && !isEditMode) {
+                    pin.style.opacity = depthOpacity;
+                    if (depthBlur > 0) pin.style.filter = `blur(${depthBlur}px)`;
+                    else pin.style.filter = "none";
+                } else {
+                    pin.style.opacity = 1.0;
+                    pin.style.filter = "none";
+                }
+
+                const isConnector = node.type === 'connector';
+                let nodeBodyMarkup = '';
+                let labelMarkup = '';
+
+                if (isConnector) {
+                    const connShadow = isSelected ? `box-shadow: 0 0 10px ${domainColor}; border-color: #fff;` : `border-color: ${domainColor};`;
+                    nodeBodyMarkup = `
+                        <div class="pin-body w-4 h-4 rotate-45 border-[2px] bg-slate-950 flex items-center justify-center pointer-events-auto cursor-pointer" style="${connShadow}" data-id="${node.id}">
+                            <i class="fa-solid fa-plug text-[8px] -rotate-45" style="color: ${domainColor}"></i>
+                        </div>
+                    `;
+                    labelMarkup = `
+                        <div class="mt-2 px-1.5 py-0.5 rounded bg-black/90 border border-slate-700 text-[9px] font-mono text-slate-350 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none select-none">
+                            ${node.id} (${node.name})
+                        </div>
+                    `;
+                } else {
+                    nodeBodyMarkup = `
+                        <div class="pin-body w-6 h-6 rounded-full border-[2.5px] bg-slate-900 flex items-center justify-center font-mono text-[9px] font-bold pointer-events-auto cursor-pointer" style="color: ${domainColor}; ${borderStyle}" data-id="${node.id}">
+                            ${node.id.substring(0, 3)}
+                        </div>
+                    `;
+                    labelMarkup = `
+                        <div class="mt-1 px-1.5 py-0.5 rounded bg-black/90 border border-slate-700 text-[9px] font-mono text-slate-355 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none select-none">
+                            ${node.id}
+                        </div>
+                    `;
+                }
+
+                pin.innerHTML = nodeBodyMarkup + labelMarkup;
+
+                const pinBody = pin.querySelector('.pin-body');
+                if (pinBody) {
+                    pinBody.onmousedown = (event) => {
+                        if(!isEditMode && event.button !== 2) {
+                            selectECU(node.id);
+                            event.stopPropagation();
+                        }
+                    };
+
+                    pinBody.ontouchstart = (event) => {
+                        if(!isEditMode) {
+                            selectECU(node.id);
+                            if (event.cancelable) {
+                                event.preventDefault();
+                            }
+                            event.stopPropagation();
+                        }
+                    };
+
+                    pinBody.oncontextmenu = (event) => {
+                        event.preventDefault();
+                        if(!isEditMode) {
+                            openDtcManager(node.id, event.clientX, event.clientY);
+                            event.stopPropagation();
+                        }
+                    };
+                }
+
+                container.appendChild(pin);
+            });
+
+            setTimeout(renderNetworkConnections, 10);
+        }
+
+        /**
+         * @function renderNetworkConnections
+         * @description 차량 도면 위에 렌더링된 핀들의 실제 물리적 크기 영역을 획득하여, 
+         *              노드 간 통신 링크 정보를 기반으로 SVG 동적 점선(Dotted Line) 커넥터를 작도합니다.
+         *              활성화되거나 선택된 통신 노드 연결망에는 빠른 유동 애니메이션 효과(CSS keyframe dashflow)를 주입합니다.
+         * @returns {void}
+         * @example
+         * // 예제 1: 연결망 수동 렌더링 호출
+         * renderNetworkConnections();
+         * @caution SVG viewBox 해상도를 vehicleSvgWrapper의 getBoundingClientRect() 실제 픽셀 너비/높이로 갱신하므로, 
+         *          차량 캔버스의 크기가 계산된 이후에 호출되어야 연결선이 핀의 정중앙에 정확히 조준됩니다.
+         */
+        function renderNetworkConnections() {
+            const svg = document.getElementById('svgNetworkConnections');
+            if (!svg) return;
+            svg.innerHTML = '';
+
+            if (isArMode && !isArAligned) {
+                svg.style.opacity = '0';
+                return;
+            }
+            svg.style.opacity = '1';
+
+            const wrapper = document.getElementById('vehicleSvgWrapper');
+            if (!wrapper) return;
+            const rect = wrapper.getBoundingClientRect();
+            
+            if (rect.width === 0 || rect.height === 0) return;
+            
+            const w = rect.width;
+            const h = rect.height;
+            svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
+
+            const drawnLinks = new Set(); 
+            const filteredNodes = getFilteredNodes();
+
+            filteredNodes.forEach(sourceNode => {
+                const sPos = sourceNode.coords[currentView];
+                if (!sPos) return;
+
+                const x1 = (sPos.x / 100) * w;
+                const y1 = (sPos.y / 100) * h;
+
+                sourceNode.links.forEach(targetId => {
+                    const targetNode = ecuData.find(n => n.id === targetId);
+                    if (!targetNode) return;
+                    
+                    const isTargetVisible = filteredNodes.some(n => n.id === targetId);
+                    if (!isTargetVisible) return;
+
+                    const linkKey = [sourceNode.id, targetId].sort().join('-');
+                    if (drawnLinks.has(linkKey)) return;
+                    drawnLinks.add(linkKey);
+
+                    const tPos = targetNode.coords[currentView];
+                    if (!tPos) return;
+
+                    const x2 = (tPos.x / 100) * w;
+                    const y2 = (tPos.y / 100) * h;
+
+                    let strokeColor = "rgba(142, 142, 147, 0.2)";
+                    let strokeWidth = "1.5";
+                    let isAnimated = false;
+                    let lineClass = "";
+
+                    if (selectedEcuId === sourceNode.id || selectedEcuId === targetId) {
+                        strokeColor = getDomainColor(sourceNode.domain);
+                        strokeWidth = "2.2";
+                        isAnimated = true;
+                        lineClass = "flow-line-fast";
+                    } else if (activeDomain !== 'ALL') {
+                        strokeColor = getDomainColor(activeDomain);
+                        strokeWidth = "1.8";
+                        isAnimated = true;
+                        lineClass = "flow-line";
+                    }
+
+                    const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+                    line.setAttribute("x1", x1);
+                    line.setAttribute("y1", y1);
+                    line.setAttribute("x2", x2);
+                    line.setAttribute("y2", y2);
+                    line.setAttribute("stroke", strokeColor);
+                    line.setAttribute("stroke-width", strokeWidth);
+                    
+                    if (isAnimated) {
+                        line.setAttribute("class", lineClass);
+                    } else {
+                        line.setAttribute("stroke-dasharray", "4,4");
+                    }
+
+                    svg.appendChild(line);
+                });
+            });
+        }
+
+        function filterByDomain(domain) {
+            activeDomain = domain;
+            selectedEcuId = null;
+            
+            document.getElementById('searchInput').value = '';
+            searchQuery = '';
+            
+            document.querySelectorAll('[id^="filter-"]').forEach(btn => {
+                btn.className = "py-1 rounded bg-slate-900/40 text-slate-400 border border-slate-800 transition hover:border-slate-700";
+                btn.style.borderColor = '';
+                btn.style.color = '';
+            });
+            
+            const activeBtn = document.getElementById(`filter-${domain}`);
+            if(domain === 'ALL') {
+                activeBtn.className = "py-1 rounded bg-slate-800 text-white font-bold border border-slate-700 transition";
+            } else {
+                activeBtn.className = "py-1 rounded bg-slate-800 font-bold border transition text-white";
+                activeBtn.style.borderColor = getDomainColor(domain);
+            }
+
+            renderEcuList();
+            renderEcuPins();
+        }
+
+        function renderEcuList() {
+            const list = document.getElementById('ecuListContainer');
+            if (!list) return;
+            list.innerHTML = '';
+            
+            const filteredNodes = getFilteredNodes();
+            filteredNodes.forEach(node => {
+                const item = document.createElement('div');
+                const isSelected = (selectedEcuId === node.id);
+                
+                item.className = `p-2 rounded-lg cursor-pointer text-xs flex items-center justify-between border transition ${isSelected ? 'bg-slate-800 border-slate-700 text-white shadow-xl' : 'bg-slate-900/40 border-transparent text-slate-400 hover:bg-slate-800/80'}`;
+                
+                item.onclick = () => selectECU(node.id);
+                
+                item.innerHTML = `
+                    <div class="flex items-center space-x-2 w-full overflow-hidden">
+                        <span class="font-mono font-bold min-w-[76px] shrink-0 text-appleLink">${node.id}</span>
+                        <span class="truncate flex-1">${node.name}</span>
+                    </div>
+                `;
+                list.appendChild(item);
+            });
+        }
+
+        function selectECU(nodeId) {
+            selectedEcuId = nodeId;
+            renderEcuList();
+            renderEcuPins(); 
+
+            const node = ecuData.find(n => n.id === nodeId);
+            if (!node) return;
+
+            if (window.innerWidth < 768) {
+                const rightDrawer = document.querySelector('aside.w-\\[340px\\]');
+                const overlay = document.getElementById('drawerOverlay');
+                if (rightDrawer) rightDrawer.classList.add('drawer-open');
+                if (overlay) overlay.classList.add('active');
+            }
+
+            document.getElementById('detailPanelEmpty').classList.add('hidden');
+            document.getElementById('detailPanelContent').classList.remove('hidden');
+
+            const isConnector = node.type === 'connector';
+            document.getElementById('detailPanelHeaderTitle').innerText = isConnector ? '커넥터 상세 모니터링' : '제어기 상세 모니터링';
+            document.getElementById('detailEcuSectionTitle').innerText = 'IMAGE';
+            document.getElementById('detailNetworkSectionTitle').innerText = isConnector ? '연결된 노드 네트워크' : '연결된 제어기 네트워크';
+
+            const detailEcuIdEl = document.getElementById('detailEcuId');
+            detailEcuIdEl.innerText = node.id;
+            detailEcuIdEl.style.color = getDomainColor(node.domain);
+            document.getElementById('detailEcuName').innerText = node.name;
+            document.getElementById('detailEcuDesc').innerText = node.desc || '';
+            
+            const domainBadge = document.getElementById('detailStatusBadge');
+            if (domainBadge) {
+                domainBadge.classList.remove('hidden');
+                if (node.status === 'fault') {
+                    domainBadge.innerText = 'FAULT';
+                    domainBadge.className = "bg-rose-600 text-white font-bold px-2 py-0.5 rounded text-[10px]";
+                } else if (node.status === 'warning') {
+                    domainBadge.innerText = 'WARNING';
+                    domainBadge.className = "bg-amber-500 text-white font-bold px-2 py-0.5 rounded text-[10px]";
+                } else {
+                    domainBadge.innerText = 'NORMAL';
+                    domainBadge.className = "bg-slate-800 text-slate-350 font-bold px-2 py-0.5 rounded text-[10px]";
+                }
+            }
+
+            const detailAccordionWrapper = document.getElementById('ecuDetailAccordionWrapper');
+            if (detailAccordionWrapper) {
+                detailAccordionWrapper.classList.remove('hidden');
+            }
+
+            const imgEl = document.getElementById('detailEcuImg');
+            const fallbackEl = document.getElementById('hudFallbackScanner');
+            const photoTitleEl = document.getElementById('detailEcuPhotoTitle');
+            if (imgEl && fallbackEl && photoTitleEl) {
+                imgEl.style.display = 'none';
+                fallbackEl.classList.remove('hidden');
+
+                imgEl.src = `./car_image/${node.id}.jpg`;
+                imgEl.alt = `${node.id} Photo`;
+                photoTitleEl.innerText = "IMAGE";
+            }
+            const linksContainer = document.getElementById('detailConnectedList');
+            if (linksContainer) {
+                linksContainer.innerHTML = '';
+                node.links.forEach(link => {
+                    const linkButton = document.createElement('button');
+                    linkButton.className = "flex items-center justify-center space-x-2 px-3 py-1.5 rounded-full bg-slate-900 border border-slate-800 hover:border-slate-600 text-xs font-mono text-appleLink transition-all";
+                    linkButton.innerHTML = `<i class="fa-solid fa-network-wired text-[10px]"></i><span>${link}</span>`;
+                    linkButton.onclick = () => selectECU(link); 
+                    linksContainer.appendChild(linkButton);
+                });
+            }
+
+            const ecuDetailContent = document.getElementById('ecuDetailContent');
+            if (ecuDetailContent && ecuDetailContent.classList.contains('open')) {
+                ecuDetailContent.style.maxHeight = 'none';
+            }
+            const networkDetailContent = document.getElementById('networkDetailContent');
+            if (networkDetailContent && networkDetailContent.classList.contains('open')) {
+                networkDetailContent.style.maxHeight = 'none';
+            }
+        }
+
+        function requestEditMode() {
+            if (isEditMode) {
+                isEditMode = false;
+                document.getElementById('editBtnText').innerText = "위치 세팅 (잠금)";
+                document.getElementById('editLockIcon').className = "fa-solid fa-lock";
+                savePositions(); 
+            } else {
+                document.getElementById('passwordModal').classList.remove('hidden');
+                const passwordInputEl = document.getElementById('pwInput');
+                passwordInputEl.value = '';
+                passwordInputEl.focus();
+                document.getElementById('pwError').classList.add('hidden');
+            }
+        }
+
+        function closePasswordModal() {
+            document.getElementById('passwordModal').classList.add('hidden');
+        }
+
+        /**
+         * @function verifyPassword
+         * @description 위치 세팅(편집) 모드 진입 시 입력받은 비밀번호를 CONFIG.ADMIN_PASSWORD 상수와 대조 검증합니다.
+         *              인증 성공 시 모달을 닫고 핀의 자유 드래그 세팅 기능을 해제(Lock-Open) 상태로 전환합니다.
+         * @returns {void}
+         * @example
+         * // 예제 1: 비밀번호 매칭 시도 수동 호출
+         * verifyPassword();
+         * @caution 비밀번호 불일치 시 에러 문구 요소를 표출하며 편집 모드로 진입하지 않습니다.
+         */
+        function verifyPassword() {
+            const passwordInputValue = document.getElementById('pwInput').value;
+            if (passwordInputValue === CONFIG.ADMIN_PASSWORD) {
+                closePasswordModal();
+                isEditMode = true;
+                document.getElementById('editBtnText').innerText = "세팅 중 (클릭 시 저장)";
+                document.getElementById('editLockIcon').className = "fa-solid fa-lock-open";
+                alert("위치 세팅 모드가 활성화되었습니다. 노드를 마우스로 드래그하여 이동하세요.");
+            } else {
+                document.getElementById('pwError').classList.remove('hidden');
+            }
+        }
+
+        function setupDragAndDrop() {
+            const wrapper = document.getElementById('vehicleSvgWrapper');
+
+            const startDrag = (e) => {
+                if (!isEditMode) return;
+                const pin = e.target.closest('[data-id]'); 
+                if (!pin) return;
+                draggingNodeId = pin.dataset.id;
+                
+                if (e.cancelable) {
+                    e.preventDefault();
+                }
+            };
+
+            const doDrag = (e) => {
+                if (!isEditMode || !draggingNodeId) return;
+
+                if (e.touches && e.cancelable) {
+                    e.preventDefault();
+                }
+
+                const rect = wrapper.getBoundingClientRect();
+                const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+                const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+
+                let xPercent = ((clientX - rect.left) / rect.width) * 100;
+                let yPercent = ((clientY - rect.top) / rect.height) * 100;
+
+                xPercent = Math.max(CONFIG.DRAG_LIMIT.MIN, Math.min(CONFIG.DRAG_LIMIT.MAX, xPercent));
+                yPercent = Math.max(CONFIG.DRAG_LIMIT.MIN, Math.min(CONFIG.DRAG_LIMIT.MAX, yPercent));
+
+                const node = ecuData.find(n => n.id === draggingNodeId);
+                if (node && node.coords[currentView]) {
+                    node.coords[currentView] = { x: xPercent, y: yPercent };
+                    syncSharedAxes(node, currentView, xPercent, yPercent);
+                    
+                    const pinEl = document.getElementById(`pin-${draggingNodeId}`);
+                    if (pinEl) {
+                        pinEl.style.left = `${xPercent}%`;
+                        pinEl.style.top = `${yPercent}%`;
+                    }
+                    renderNetworkConnections(); 
+                }
+            };
+
+            const stopDrag = () => { draggingNodeId = null; };
+
+            wrapper.addEventListener('mousedown', startDrag);
+            window.addEventListener('mousemove', doDrag);
+            window.addEventListener('mouseup', stopDrag);
+
+            wrapper.addEventListener('touchstart', startDrag, { passive: false });
+            window.addEventListener('touchmove', doDrag, { passive: false });
+            window.addEventListener('touchend', stopDrag);
+            window.addEventListener('touchcancel', stopDrag);
+        }
+
+        function savePositions(silent = true) {
+            try {
+                localStorage.setItem('ar_ecu_positions_v2', JSON.stringify(ecuData));
+                if (!silent) {
+                    alert("수정된 제어기 정보 및 위치가 안전하게 저장되었습니다.");
+                }
+            } catch (error) {
+                console.error("로컬 스토리지 저장 실패:", error);
+            }
+        }
+
+        function loadPositions() {
+            try {
+                const saved = localStorage.getItem('ar_ecu_positions_v2');
+                if (saved) {
+                    const parsed = JSON.parse(saved);
+                    ecuData = DEFAULT_ECU_DATA.map(node => {
+                        const sNode = parsed.find(p => p.id === node.id);
+                        const merged = sNode && sNode.coords ? { ...node, coords: sNode.coords } : node;
+                        if (!merged.type) merged.type = 'ecu';
+                        return merged;
+                    });
+                    
+                    parsed.forEach(pNode => {
+                        if (!ecuData.some(n => n.id === pNode.id)) {
+                            if (!pNode.type) pNode.type = 'ecu';
+                            ecuData.push(pNode);
+                        }
+                    });
+                    return;
+                }
+            } catch (error) {
+                console.error("로컬 스토리지 데이터 로드 에러:", error);
+            }
+            
+            ecuData = JSON.parse(JSON.stringify(DEFAULT_ECU_DATA));
+            ecuData.forEach(node => { if (!node.type) node.type = 'ecu'; });
+        }
+
+        function resetPositions() {
+            if(confirm("모든 제어기 및 커넥터의 위치와 설정을 초기 상태로 복구하시겠습니까?\n(사용자가 추가한 제어기 및 변경 사항이 완전히 소실됩니다.)")) {
+                try {
+                    localStorage.removeItem('ar_ecu_positions_v2');
+                } catch (error) {
+                    console.error("로컬 스토리지 삭제 실패:", error);
+                }
+                ecuData = JSON.parse(JSON.stringify(DEFAULT_ECU_DATA));
+                ecuData.forEach(node => { if (!node.type) node.type = 'ecu'; });
+                updateHeaderNodeCount();
+                renderEcuList();
+                renderEcuPins();
+            }
+        }
+
+        function triggerCsvExport() {
+            let csvStr = "\uFEFFID,제어기명,도메인,TopX,TopY,SideX,SideY,FrontX,FrontY,연결노드,DTC코드\n";
+            
+            ecuData.forEach(node => {
+                const links = (node.links || []).join("|");
+                const dtcs = (node.dtcs || []).join("|");
+                const topX = (node.coords.top && node.coords.top.x !== undefined) ? node.coords.top.x.toFixed(2) : "50.00";
+                const topY = (node.coords.top && node.coords.top.y !== undefined) ? node.coords.top.y.toFixed(2) : "50.00";
+                const sideX = (node.coords.side && node.coords.side.x !== undefined) ? node.coords.side.x.toFixed(2) : "50.00";
+                const sideY = (node.coords.side && node.coords.side.y !== undefined) ? node.coords.side.y.toFixed(2) : "50.00";
+                const frontX = (node.coords.front && node.coords.front.x !== undefined) ? node.coords.front.x.toFixed(2) : "50.00";
+                const frontY = (node.coords.front && node.coords.front.y !== undefined) ? node.coords.front.y.toFixed(2) : "50.00";
+                
+                csvStr += `${node.id},"${node.name}",${node.domain},${topX},${topY},${sideX},${sideY},${frontX},${frontY},"${links}","${dtcs}"\n`;
+            });
+
+            const dateStr = new Date().toISOString().slice(0,10).replace(/-/g, "");
+            const filename = `SmartAR_ECU_Setting_${dateStr}.csv`;
+
+            if (typeof AndroidHelper !== 'undefined' && AndroidHelper.isAndroid) {
+                try {
+                    AndroidBridge.exportCsvData(csvStr, filename);
+                    return;
+                } catch(e) {}
+            }
+            
+            const blob = new Blob([csvStr], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement("a");
+            const url = URL.createObjectURL(blob);
+            link.setAttribute("href", url);
+            link.setAttribute("download", filename);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        function triggerCsvUpload() {
+            document.getElementById('ecuCsvFileInput').click();
+        }
+
+        /**
+         * @function handleCsvUpload
+         * @description 업로드된 엑셀(CSV) 텍스트 데이터를 로컬 FileReader로 파싱하고 기존 제어기 데이터를 갱신하거나 신규 노드를 추가 병합합니다.
+         *              병합 완료 후 로컬 스토리지에 자동 저장하고, 실시간 테이블 모달 리프레시 콜백을 트리거합니다.
+         * @param {HTMLInputElement} input - 파일 업로드 엘리먼트 객체
+         * @returns {void}
+         * @example
+         * // HTML 인풋 요소 바인딩
+         * <input type="file" onchange="handleCsvUpload(this)">
+         * @caution CSV 인코딩은 UTF-8 형식이어야 하며 첫 번째 행은 헤더 칼럼명(ID, 도메인, 명칭 등)이어야 정상 파싱됩니다.
+         */
+        function handleCsvUpload(input) {
+            const file = input.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const text = e.target.result;
+                const rows = text.split(/\r?\n/);
+                if (rows.length <= 1) {
+                    alert("업로드된 CSV 파일에 유효한 데이터가 존재하지 않습니다.");
+                    return;
+                }
+
+                let updatedCount = 0;
+                let addedCount = 0;
+
+                const existingMap = new Map();
+                ecuData.forEach(node => {
+                    existingMap.set(node.id.toUpperCase(), node);
+                });
+
+                const newEcuList = [];
+
+                for (let i = 1; i < rows.length; i++) {
+                    const rowText = rows[i].trim();
+                    if (!rowText) continue;
+
+                    const cols = rowText.split(',').map(c => c.trim().replace(/^"|"$/g, ''));
+                    if (cols.length < 3) continue;
+
+                    const id = cols[0].toUpperCase();
+                    const domain = cols[1].toUpperCase();
+                    const name = cols[2];
+                    
+                    const rawLinks = cols[3] || '';
+                    const links = rawLinks ? rawLinks.split(/[|;]/).map(l => l.trim().toUpperCase()).filter(Boolean) : [];
+
+                    const rawDtcs = cols[4] || '';
+                    const dtcs = rawDtcs ? rawDtcs.split(/[|;]/).map(d => d.trim().toUpperCase()).filter(Boolean) : [];
+
+                    const type = (domain === 'CONNECTOR' || id.startsWith('CON_')) ? 'connector' : 'ecu';
+
+                    const existingNode = existingMap.get(id);
+                    if (existingNode) {
+                        existingNode.domain = domain;
+                        existingNode.name = name;
+                        existingNode.links = links;
+                        existingNode.dtcs = dtcs;
+                        existingNode.type = type;
+                        
+                        newEcuList.push(existingNode);
+                        updatedCount++;
+                    } else {
+                        const newNode = {
+                            id: id,
+                            domain: domain,
+                            name: name,
+                            type: type,
+                            status: 'normal',
+                            links: links,
+                            dtcs: dtcs,
+                            coords: {
+                                top: { x: CONFIG.DEFAULT_COORD, y: CONFIG.DEFAULT_COORD },
+                                side: { x: CONFIG.DEFAULT_COORD, y: CONFIG.DEFAULT_COORD },
+                                front: { x: CONFIG.DEFAULT_COORD, y: CONFIG.DEFAULT_COORD }
+                            }
+                        };
+                        newEcuList.push(newNode);
+                        addedCount++;
+                    }
+                }
+
+                if (newEcuList.length > 0) {
+                    ecuData = newEcuList;
+                    savePositions(true);
+                    
+                    updateHeaderNodeCount();
+                    renderEcuList();
+                    renderEcuPins();
+                    
+                    const modal = document.getElementById('ecuTableModal');
+                    if (modal && !modal.classList.contains('hidden')) {
+                        openEcuTableModal();
+                    }
+                    
+                    alert(`엑셀(CSV) 데이터 연동 성공!\n- 신규 노드 추가: ${addedCount}건\n- 기존 노드 정보 갱신: ${updatedCount}건`);
+                } else {
+                    alert("파싱에 성공한 유효한 제어기 행이 없습니다.");
+                }
+
+                input.value = '';
+            };
+
+            reader.readAsText(file, "UTF-8");
+        }
+
+        function renderLinkCheckboxes(containerId, excludeNodeId, checkedLinks = []) {
+            const container = document.getElementById(containerId);
+            if (!container) return;
+            container.innerHTML = '';
+
+            const sortedNodes = [...ecuData]
+                .filter(node => !excludeNodeId || node.id !== excludeNodeId)
+                .sort((a, b) => a.id.localeCompare(b.id));
+
+            sortedNodes.forEach(node => {
+                const isChecked = checkedLinks.includes(node.id);
+                const wrapperDiv = document.createElement('div');
+                wrapperDiv.className = 'flex items-center space-x-2 p-1 hover:bg-slate-800 rounded';
+                wrapperDiv.innerHTML = `
+                    <input type="checkbox" id="${containerId}-chk-${node.id}" value="${node.id}" ${isChecked ? 'checked' : ''} class="accent-appleBlue rounded border-slate-700 bg-slate-900">
+                    <label for="${containerId}-chk-${node.id}" class="text-slate-350 cursor-pointer select-none truncate">${node.id}</label>
+                `;
+                container.appendChild(wrapperDiv);
+            });
+        }
+
+        function openAddEcuModal() {
+            const modal = document.getElementById('addEcuModal');
+            if (!modal) return;
+            
+            renderLinkCheckboxes('newEcuLinksContainer');
+            
+            document.getElementById('newEcuType').value = 'ecu';
+            toggleAddModalTypeFields();
+            document.getElementById('newEcuId').value = '';
+            document.getElementById('newEcuName').value = '';
+            document.getElementById('newEcuDesc').value = '';
+            document.getElementById('newEcuDomain').value = 'POWERTRAIN';
+            
+            modal.classList.remove('hidden');
+        }
+
+        function toggleAddModalTypeFields() {
+            const type = document.getElementById('newEcuType').value;
+            const domainSelect = document.getElementById('newEcuDomain');
+            const domainWrapper = document.getElementById('newEcuDomainWrapper');
+            const lblId = document.getElementById('lblNewEcuId');
+            const lblName = document.getElementById('lblNewEcuName');
+            const lblDesc = document.getElementById('lblNewEcuDesc');
+
+            if (type === 'connector') {
+                if (lblId) lblId.innerText = "커넥터 ID (영문 약어, 예: CON_01)";
+                if (lblName) lblName.innerText = "커넥터 명칭";
+                if (lblDesc) lblDesc.innerText = "커넥터 설명 (용도 / 위치)";
+
+                if (![...domainSelect.options].some(o => o.value === 'CONNECTOR')) {
+                    const opt = document.createElement('option');
+                    opt.value = 'CONNECTOR';
+                    opt.text = 'CONNECTOR (커넥터 배선)';
+                    domainSelect.add(opt);
+                }
+                domainSelect.value = 'CONNECTOR';
+                domainSelect.disabled = true;
+                if (domainWrapper) domainWrapper.classList.add('hidden');
+            } else {
+                if (lblId) lblId.innerText = "제어기 ID (영문 약어, 예: MCU2)";
+                if (lblName) lblName.innerText = "제어기 명칭 (국문 풀네임)";
+                if (lblDesc) lblDesc.innerText = "제어기 설명 (영문명 / 코드, 예: Motor Control Unit 2)";
+
+                domainSelect.disabled = false;
+                if (domainSelect.value === 'CONNECTOR') {
+                    domainSelect.value = 'POWERTRAIN';
+                }
+                if (domainWrapper) domainWrapper.classList.remove('hidden');
+            }
+        }
+
+        function closeAddEcuModal() {
+            document.getElementById('addEcuModal').classList.add('hidden');
+        }
+
+        function updateHeaderNodeCount() {
+            const el = document.getElementById('nodeCountSubtitle');
+            if (el) {
+                el.innerText = `${ecuData.length} Nodes Connected | ECU Network`;
+            }
+        }
+
+        /**
+         * @function submitNewEcu
+         * @description 노드 생성 폼에서 입력받은 정보를 수집하여 신규 제어기(ECU) 또는 커넥터(CONNECTOR) 객체를 생성합니다.
+         *              생성된 노드를 전역 배열(ecuData)에 추가하고, 체크된 타겟 노드들과의 양방향 통신 링크를 자동 바인딩합니다.
+         * @returns {void}
+         * @example
+         * // 폼 제출 액션 매핑
+         * submitNewEcu();
+         * @caution 생성 시 좌표값은 화면 정중앙(50%, 50%)인 CONFIG.DEFAULT_COORD로 디폴트 초기화되며, 
+         *          위치 세팅 편집 모드 해제 후 정비사가 드래그하여 실배치해야 합니다.
+         */
+        function submitNewEcu() {
+            const type = document.getElementById('newEcuType').value;
+            const id = document.getElementById('newEcuId').value.trim().toUpperCase();
+            const name = document.getElementById('newEcuName').value.trim();
+            const desc = document.getElementById('newEcuDesc').value.trim();
+            const domain = type === 'connector' ? 'CONNECTOR' : document.getElementById('newEcuDomain').value;
+            
+            if (!id) { alert("ID를 입력해 주세요."); return; }
+            if (!/^[A-Z0-9_-]+$/.test(id)) { alert("ID는 영문 대문자, 숫자, 하이픈(-), 언더바(_)만 사용 가능합니다."); return; }
+            if (ecuData.some(node => node.id === id)) { alert("이미 존재하는 ID입니다."); return; }
+            if (!name) { alert("명칭을 입력해 주세요."); return; }
+            
+            const links = [];
+            const checkboxes = document.querySelectorAll('#newEcuLinksContainer input[type="checkbox"]:checked');
+            checkboxes.forEach(chk => { links.push(chk.value); });
+            
+            const newEcu = {
+                id: id,
+                type: type,
+                name: name,
+                desc: desc,
+                domain: domain,
+                status: "normal",
+                links: links,
+                coords: {
+                    top: { x: CONFIG.DEFAULT_COORD, y: CONFIG.DEFAULT_COORD },
+                    side: { x: CONFIG.DEFAULT_COORD, y: CONFIG.DEFAULT_COORD },
+                    front: { x: CONFIG.DEFAULT_COORD, y: CONFIG.DEFAULT_COORD }
+                }
+            };
+            
+            ecuData.push(newEcu);
+            
+            links.forEach(targetId => {
+                const targetNode = ecuData.find(n => n.id === targetId);
+                if (targetNode) {
+                    if (!targetNode.links) targetNode.links = [];
+                    if (!targetNode.links.includes(id)) targetNode.links.push(id);
+                }
+            });
+            
+            savePositions(true);
+            updateHeaderNodeCount();
+            renderEcuList();
+            renderEcuPins();
+            
+            closeAddEcuModal();
+            const nodeTypeName = type === 'connector' ? '커넥터 배선 노드' : '제어기(ECU) 노드';
+            alert(`'${id}' (${nodeTypeName})가 성공적으로 추가되었습니다.\n'위치 세팅' 모드(비밀번호: 0000)를 해제한 뒤 드래그하여 배치해 주세요.`);
+        }
+
+        /**
+         * @function openDtcManager
+         * @description 대상 노드의 마우스 우클릭(또는 롱 터치) 시 작동하며, 마우스 포인터 좌표(x, y) 상에
+         *              해당 제어기의 DTC 고장코드 추가/삭제가 가능한 전용 간이 관리 팝업 컨텍스트 메뉴를 표출합니다.
+         * @param {string} nodeId - DTC를 관리할 대상 제어기/커넥터 노드의 ID
+         * @param {number} x - 팝업을 띄울 화면의 절대 X 픽셀 좌표
+         * @param {number} y - 팝업을 띄울 화면의 절대 Y 픽셀 좌표
+         * @returns {void}
+         * @example
+         * // 예제 1: BMS 노드의 우클릭 이벤트 바인딩
+         * openDtcManager('BMS', 450, 300);
+         * // 예제 2: 터치 지점 좌표 기반 호출
+         * openDtcManager('ADAS', touchX, touchY);
+         * @caution 이 팝업은 윈도우 mousedown 클릭 이벤트를 감지하여 팝업 바깥 영역 클릭 시 자동으로 닫힙니다.
+         */
+        function openDtcManager(nodeId, x, y) {
+            activeDtcNodeId = nodeId;
+            const popup = document.getElementById('dtcManagerPopup');
+            if (!popup) return;
+            popup.querySelector('#dtcPopupTitle span').innerText = `${nodeId} DTC 목록`;
+            
+            popup.style.left = `${x + 10}px`;
+            popup.style.top = `${y + 10}px`;
+            popup.classList.remove('hidden');
+            
+            renderDtcList(nodeId);
+        }
+
+        function renderDtcList(nodeId) {
+            const node = ecuData.find(n => n.id === nodeId);
+            const listWrap = document.getElementById('dtcList');
+            listWrap.innerHTML = '';
+            
+            if (!node.dtcs) node.dtcs = [];
+            if (node.dtcs.length === 0) {
+                listWrap.innerHTML = '<li class="text-slate-500 text-center py-2 italic text-[10px]">등록된 DTC 없음</li>';
+                return;
+            }
+            
+            node.dtcs.forEach((code, index) => {
+                const li = document.createElement('li');
+                li.className = "flex items-center justify-between bg-slate-900 border border-slate-800 px-2.5 py-1.5 rounded-lg text-xs";
+                li.innerHTML = `
+                    <span class="font-mono text-appleLink font-bold">${code}</span>
+                    <button onclick="deleteDtc('${nodeId}', ${index})" class="text-rose-500 hover:text-rose-455 font-bold transition text-sm focus:outline-none">&times;</button>
+                `;
+                listWrap.appendChild(li);
+            });
+        }
+
+        function addDtc(nodeId, code) {
+            const node = ecuData.find(n => n.id === nodeId);
+            if (!node.dtcs) node.dtcs = [];
+            if (node.dtcs.includes(code)) { alert("이미 등록된 DTC 코드입니다."); return; }
+            
+            node.dtcs.push(code);
+            savePositions(true);
+            renderDtcList(nodeId);
+            renderEcuList();
+            renderEcuPins();
+        }
+
+        function deleteDtc(nodeId, index) {
+            const node = ecuData.find(n => n.id === nodeId);
+            const code = node.dtcs[index];
+            if (confirm(`${code} DTC 코드를 삭제하시겠습니까?`)) {
+                node.dtcs.splice(index, 1);
+                savePositions(true);
+                renderDtcList(nodeId);
+                renderEcuList();
+                renderEcuPins();
+            }
+        }
+
+        function deleteSelectedEcu() {
+            if (!selectedEcuId) return;
+            const node = ecuData.find(n => n.id === selectedEcuId);
+            if (!node) return;
+            
+            if (confirm(`제어기 '${selectedEcuId}' (${node.name})를 완전히 삭제하시겠습니까?\n이 제어기와 연결된 다른 모든 통신선도 자동으로 해제됩니다.`)) {
+                ecuData.forEach(otherNode => {
+                    if (otherNode.links && otherNode.links.includes(selectedEcuId)) {
+                        otherNode.links = otherNode.links.filter(link => link !== selectedEcuId);
+                    }
+                });
+                
+                ecuData = ecuData.filter(n => n.id !== selectedEcuId);
+                savePositions(true);
+                selectedEcuId = null;
+                
+                document.getElementById('detailPanelEmpty').classList.remove('hidden');
+                document.getElementById('detailPanelContent').classList.add('hidden');
+                
+                updateHeaderNodeCount();
+                renderEcuList();
+                renderEcuPins();
+                alert("제어기가 삭제되었습니다.");
+            }
+        }
+
+        function openEditEcuModal() {
+            if (!selectedEcuId) return;
+            const node = ecuData.find(n => n.id === selectedEcuId);
+            if (!node) return;
+            
+            const modal = document.getElementById('editEcuModal');
+            if (!modal) return;
+            
+            renderLinkCheckboxes('editEcuLinksContainer', selectedEcuId, node.links || []);
+            
+            const isConn = node.type === 'connector';
+            document.getElementById('editEcuType').value = isConn ? 'CONNECTOR (커넥터)' : 'ECU (제어기)';
+            document.getElementById('editEcuId').value = node.id;
+            document.getElementById('editEcuName').value = node.name;
+            document.getElementById('editEcuDesc').value = node.desc || '';
+            
+            const lblId = document.getElementById('lblEditEcuId');
+            const lblName = document.getElementById('lblEditEcuName');
+            const lblDesc = document.getElementById('lblEditEcuDesc');
+            
+            if (lblId) lblId.innerText = isConn ? "커넥터 ID (수정 불가)" : "제어기 ID (수정 불가)";
+            if (lblName) lblName.innerText = isConn ? "커넥터 명칭" : "제어기 명칭 (국문 풀네임)";
+            if (lblDesc) lblDesc.innerText = isConn ? "커넥터 설명 (용도 / 위치)" : "제어기 설명 (영문명 / 코드)";
+
+            const domainSelect = document.getElementById('editEcuDomain');
+            const domainWrapper = document.getElementById('editEcuDomainWrapper');
+            if (isConn) {
+                if (![...domainSelect.options].some(o => o.value === 'CONNECTOR')) {
+                    const opt = document.createElement('option');
+                    opt.value = 'CONNECTOR';
+                    opt.text = 'CONNECTOR (커넥터 배선)';
+                    domainSelect.add(opt);
+                }
+                domainSelect.value = 'CONNECTOR';
+                domainSelect.disabled = true;
+                if (domainWrapper) domainWrapper.classList.add('hidden');
+            } else {
+                domainSelect.disabled = false;
+                domainSelect.value = node.domain;
+                if (domainWrapper) domainWrapper.classList.remove('hidden');
+            }
+            
+            modal.classList.remove('hidden');
+        }
+
+        function closeEditEcuModal() {
+            document.getElementById('editEcuModal').classList.add('hidden');
+        }
+
+        function submitEditEcu() {
+            const id = document.getElementById('editEcuId').value;
+            const name = document.getElementById('editEcuName').value.trim();
+            const desc = document.getElementById('editEcuDesc').value.trim();
+            
+            if (!name) { alert("명칭을 입력해 주세요."); return; }
+            
+            const node = ecuData.find(n => n.id === id);
+            if (!node) return;
+            
+            const domain = node.type === 'connector' ? 'CONNECTOR' : document.getElementById('editEcuDomain').value;
+            const newLinks = [];
+            const checkboxes = document.querySelectorAll('#editEcuLinksContainer input[type="checkbox"]:checked');
+            checkboxes.forEach(chk => { newLinks.push(chk.value); });
+            
+            const oldLinks = node.links || [];
+            const unlinkedTargets = oldLinks.filter(oldTarget => !newLinks.includes(oldTarget));
+            unlinkedTargets.forEach(targetId => {
+                const targetNode = ecuData.find(n => n.id === targetId);
+                if (targetNode && targetNode.links && targetNode.links.includes(id)) {
+                    targetNode.links = targetNode.links.filter(link => link !== id);
+                }
+            });
+            
+            const newlyLinkedTargets = newLinks.filter(newTarget => !oldLinks.includes(newTarget));
+            newlyLinkedTargets.forEach(targetId => {
+                const targetNode = ecuData.find(n => n.id === targetId);
+                if (targetNode) {
+                    if (!targetNode.links) targetNode.links = [];
+                    if (!targetNode.links.includes(id)) targetNode.links.push(id);
+                }
+            });
+            
+            node.name = name;
+            node.desc = desc;
+            node.domain = domain;
+            node.links = newLinks;
+            
+            savePositions(true);
+            renderEcuList();
+            renderEcuPins();
+            selectECU(id); 
+            
+            closeEditEcuModal();
+            const label = node.type === 'connector' ? '커넥터 배선' : '제어기(ECU)';
+            alert(`'${id}' (${label}) 정보가 수정되었습니다.`);
+        }
+
+        function toggleAccordion(sectionId) {
+            const content = document.getElementById(`${sectionId}Content`);
+            const chevron = document.getElementById(`${sectionId}Chevron`);
+            if (!content || !chevron) return;
+
+            const isOpen = content.classList.contains('open');
+            if (isOpen) {
+                content.style.maxHeight = `${content.scrollHeight}px`;
+                content.offsetHeight; 
+                content.style.maxHeight = '0px';
+                content.classList.remove('open');
+                chevron.classList.remove('rotated');
+            } else {
+                content.classList.add('open');
+                content.style.maxHeight = `${content.scrollHeight}px`;
+                chevron.classList.add('rotated');
+                
+                content.addEventListener('transitionend', function handler() {
+                    if (content.classList.contains('open')) {
+                        content.style.maxHeight = 'none';
+                    }
+                    content.removeEventListener('transitionend', handler);
+                });
+            }
+        }
+
+        function closeDtcManager() {
+            document.getElementById('dtcManagerPopup').classList.add('hidden');
+        }
+
+        window.addEventListener('mousedown', (e) => {
+            const popup = document.getElementById('dtcManagerPopup');
+            if (popup && !popup.classList.contains('hidden')) {
+                if (!popup.contains(e.target) && !e.target.closest('[data-id]')) {
+                    closeDtcManager();
+                }
+            }
+        });
+
+        async function lockScreenOrientation() {
+            try {
+                if (document.documentElement.requestFullscreen) {
+                    await document.documentElement.requestFullscreen();
+                } else if (document.documentElement.webkitRequestFullscreen) {
+                    await document.documentElement.webkitRequestFullscreen();
+                }
+                if (screen.orientation && screen.orientation.lock) {
+                    await screen.orientation.lock('landscape');
+                }
+            } catch (error) {
+                console.warn("Screen Orientation Lock 미지원 또는 거부:", error);
+            }
+        }
+
+        function unlockScreenOrientation() {
+            try {
+                if (screen.orientation && screen.orientation.unlock) {
+                    screen.orientation.unlock();
+                }
+                if (document.exitFullscreen && document.fullscreenElement) {
+                    document.exitFullscreen();
+                } else if (document.webkitExitFullscreen && document.webkitFullscreenElement) {
+                    document.webkitExitFullscreen();
+                }
+            } catch (error) {
+                console.warn("Screen Orientation Unlock 에러:", error);
+            }
+        }
+
+        function exitArModeForce() {
+            if (isArMode) {
+                toggleArMode();
+            }
+        }
+
+        function toggleArMode() {
+            const arBtn = document.getElementById('arModeToggleBtn');
+            const arIcon = document.getElementById('arCameraIcon');
+            const arText = document.getElementById('arModeBtnText');
+            const focusGuide = document.getElementById('arFocusGuide');
+            const statusInd = document.getElementById('arStatusIndicator');
+            const seeThroughWrapper = document.getElementById('arSeeThroughWrapper');
+            const guidanceOverlay = document.getElementById('landscapeGuidanceOverlay');
+            
+            const topBtn = document.getElementById('viewTopBtn');
+
+            // 배경 투명화 처리를 위한 요소 선택
+            const mainArea = document.querySelector('main');
+            const bodyEl = document.body;
+
+            if (isArMode) {
+                isArMode = false;
+                isArAligned = false;
+                isScanning = false;
+                
+                arBtn.classList.remove('bg-slate-800', 'border-slate-500');
+                arIcon.className = "fa-solid fa-camera";
+                arText.innerText = "AR 모드 OFF";
+                
+                focusGuide.classList.add('hidden');
+                statusInd.classList.add('hidden');
+                seeThroughWrapper.classList.add('hidden');
+                
+                // AR 필터 그룹 UI 숨김
+                const filterGroup = document.getElementById('arFilterModeGroup');
+                if (filterGroup) filterGroup.classList.add('hidden');
+
+                // 타이어 가이드 링 UI 숨김
+                const guideRing = document.getElementById('arTireGuideRing');
+                if (guideRing) guideRing.classList.add('hidden');
+
+                if (guidanceOverlay) guidanceOverlay.classList.add('hidden');
+                unlockScreenOrientation();
+
+                document.querySelectorAll('.focus-guide-corner').forEach(corner => {
+                    corner.classList.remove('aligned');
+                });
+                
+                topBtn.disabled = false;
+                topBtn.classList.remove('cursor-not-allowed', 'opacity-30');
+                
+                stopCamera();
+                restoreOriginalVehicleOpacity();
+                
+                // AR 모드 OFF 시 원래의 검은색 배경색으로 원상복구
+                if (mainArea) mainArea.style.setProperty('background-color', '#000000', 'important');
+                if (bodyEl) bodyEl.style.setProperty('background-color', '#000000', 'important');
+                
+                renderEcuPins();
+                alert("AR 스캔 모드가 비활성화되었습니다.");
+            } else {
+                isArMode = true;
+                
+                arBtn.classList.add('bg-slate-800', 'border-slate-500');
+                arIcon.className = "fa-solid fa-camera text-appleLink";
+                arText.innerText = "AR 스캔 준비";
+                
+                focusGuide.classList.remove('hidden');
+                statusInd.classList.remove('hidden');
+                
+                // AR 필터 그룹 UI 표시
+                const filterGroup = document.getElementById('arFilterModeGroup');
+                if (filterGroup) filterGroup.classList.remove('hidden');
+
+                // 타이어 가이드 링 UI 표시 (오직 측면 SIDE 뷰일 때만 오버레이 노출)
+                const guideRing = document.getElementById('arTireGuideRing');
+                if (guideRing) {
+                    if (currentView === 'side') {
+                        guideRing.classList.remove('hidden');
+                    } else {
+                        guideRing.classList.add('hidden');
+                    }
+                }
+                
+                if (guidanceOverlay) guidanceOverlay.classList.remove('hidden');
+                lockScreenOrientation();
+
+                const statusTxt = document.getElementById('arStatusText');
+                statusTxt.innerText = "차량을 카메라 중앙에 맞춰 주세요.";
+                document.getElementById('arIndicatorPing').className = "inline-block w-2 h-2 rounded-full bg-appleLink animate-ping";
+
+                topBtn.disabled = true;
+                topBtn.classList.add('cursor-not-allowed', 'opacity-30');
+                
+                if (currentView === 'top') {
+                    // switchView('side') 내부에서 startCamera()를 자체 기동하므로 중복 시작 방지
+                    switchView('side');
+                } else {
+                    startCamera();
+                }
+                
+                // AR 모드 ON 시 배경을 투명하게 만들어 바디 맨 뒤의 카메라 화면을 드러냄
+                if (mainArea) mainArea.style.setProperty('background-color', 'transparent', 'important');
+                if (bodyEl) bodyEl.style.setProperty('background-color', 'transparent', 'important');
+                
+                renderEcuPins();
+            }
+        }
+
+        let isArEventsRegistered = false;
+        function setupMindArEvents() {
+            if (isArEventsRegistered) return;
+            isArEventsRegistered = true;
+
+            const wheelAnchorEl = document.querySelector('#wheelAnchor');
+            if (!wheelAnchorEl) return;
+
+            // 타겟 감지 성공
+            wheelAnchorEl.addEventListener("targetFound", () => {
+                console.log("바퀴 휠 타겟 감지 성공!");
+                
+                const scanBar = document.getElementById('laserScanBar');
+                const statusTxt = document.getElementById('arStatusText');
+                const indicatorPing = document.getElementById('arIndicatorPing');
+
+                scanBar.classList.add('active');
+                statusTxt.innerText = "차량 위치 매핑 중...";
+                indicatorPing.className = "inline-block w-2 h-2 rounded-full bg-amber-500 animate-ping";
+
+                setTimeout(() => {
+                    scanBar.classList.remove('active');
+                    statusTxt.innerText = "AR 인식 완료";
+                    indicatorPing.className = "inline-block w-2 h-2 rounded-full bg-emerald-500 animate-ping";
+
+                    document.querySelectorAll('.focus-guide-corner').forEach(corner => {
+                        corner.classList.add('aligned');
+                    });
+
+                    // 매핑 완료 시 가이드 링 숨기기
+                    const guideRing = document.getElementById('arTireGuideRing');
+                    if (guideRing) guideRing.classList.add('hidden');
+
+                    isArAligned = true;
+                    generateArPinsOnWheelAnchor();
+                    
+                    document.getElementById('arSeeThroughWrapper').classList.remove('hidden');
+                    document.getElementById('arSeeThroughSlider').value = 100;
+                    handleSeeThrough(100);
+                }, 1200);
+            });
+
+            // 타겟 유실
+            wheelAnchorEl.addEventListener("targetLost", () => {
+                console.log("바퀴 휠 타겟 유실됨!");
+                isArAligned = false;
+                
+                document.getElementById('arStatusText').innerText = "차량을 카메라 중앙에 맞춰 주세요.";
+                document.getElementById('arIndicatorPing').className = "inline-block w-2 h-2 rounded-full bg-appleLink animate-ping";
+                
+                document.querySelectorAll('.focus-guide-corner').forEach(corner => {
+                    corner.classList.remove('aligned');
+                });
+                
+                document.getElementById('arSeeThroughWrapper').classList.add('hidden');
+                
+                // 타겟 유실 시 측면 SIDE 뷰인 경우에만 조준 링 다시 표시
+                const guideRing = document.getElementById('arTireGuideRing');
+                if (guideRing) {
+                    if (currentView === 'side') {
+                        guideRing.classList.remove('hidden');
+                    } else {
+                        guideRing.classList.add('hidden');
+                    }
+                }
+
+                // 해당 앵커의 핀들 비우기
+                wheelAnchorEl.innerHTML = '';
+            });
+        }
+
+
+
+        /**
+         * @var {string} arFilterMode
+         * @description AR 핀 표출 필터 모드 상태값 ('all': 전체 노드 표출, 'selected': 선택 및 연결 노드 집중 표출)
+         */
+        let arFilterMode = 'all';
+        
+        /**
+         * @function showToast
+         * @description Apple 스타일의 세련된 다크모드 플로팅 토스트 메시지를 화면에 일시적으로 팝업 출력합니다.
+         * @param {string} message - 출력할 안내 텍스트
+         * @returns {void}
+         */
+        function showToast(message) {
+            try {
+                const oldToast = document.getElementById('arGlobalToast');
+                if (oldToast) oldToast.remove();
+
+                const toast = document.createElement('div');
+                toast.id = 'arGlobalToast';
+                toast.className = "fixed bottom-16 left-1/2 transform -translate-x-1/2 bg-black/90 border border-slate-800 text-white text-xs font-semibold px-5 py-3 rounded-full z-50 shadow-2xl tracking-wider transition-all duration-300 opacity-0 scale-95 flex items-center space-x-2";
+                toast.innerHTML = `<i class="fa-solid fa-circle-info text-appleLink"></i><span>${message}</span>`;
+                
+                document.body.appendChild(toast);
+
+                setTimeout(() => {
+                    toast.classList.remove('opacity-0', 'scale-95');
+                    toast.classList.add('opacity-100', 'scale-100');
+                }, 50);
+
+                setTimeout(() => {
+                    toast.classList.remove('opacity-100', 'scale-100');
+                    toast.classList.add('opacity-0', 'scale-95');
+                    setTimeout(() => {
+                        toast.remove();
+                    }, 300);
+                }, 2500);
+            } catch (e) {
+                console.error("showToast failed:", e);
+            }
+        }
+
+        /**
+         * @function setArFilterMode
+         * @description AR 화면 상단의 필터 탭 모드를 토글 전환하고 UI 스타일 갱신 및 3D 핀 맵을 즉시 재렌더링합니다.
+         * @param {string} mode - 변경할 필터 모드 ('all' | 'selected')
+         * @returns {void}
+         */
+        function setArFilterMode(mode) {
+            try {
+                // 선택 노드 필터 선택 시, 실제로 2D상에서 선택한 노드가 없을 경우 예외 안내 처리
+                if (mode === 'selected' && !selectedEcuId) {
+                    showToast("목록에서 제어기를 선택해주세요 ");
+                    // UI 선택값을 다시 [전체 노드] 상태로 강제 복구
+                    setArFilterMode('all');
+                    return;
+                }
+
+                arFilterMode = mode;
+                const allFilterButton = document.getElementById('arFilterAllBtn');
+                const selectedFilterButton = document.getElementById('arFilterSelBtn');
+                if (!allFilterButton || !selectedFilterButton) return;
+
+                if (mode === 'all') {
+                    allFilterButton.className = "px-3 py-1 rounded-full bg-appleLink text-white font-bold transition";
+                    selectedFilterButton.className = "px-3 py-1 rounded-full text-slate-400 hover:text-white transition";
+                } else {
+                    allFilterButton.className = "px-3 py-1 rounded-full text-slate-400 hover:text-white transition";
+                    selectedFilterButton.className = "px-3 py-1 rounded-full bg-appleLink text-white font-bold transition";
+                }
+
+                // 필터링된 조건으로 3D AR 핀 즉시 재렌더링
+                generateArPinsOnWheelAnchor();
+            } catch (error) {
+                console.error("setArFilterMode execution failed:", error);
+            }
+        }
+
+        /**
+         * @function generateArPinsOnWheelAnchor
+         * @description 인식된 앞바퀴 마커의 로컬 원점 (0,0,0)을 기준으로, 
+         *              사용자가 2D 도면상에 수동 정렬해 둔 coords.side 비율 좌표계를 미터(Meter) 단위로 환산하여
+         *              A-Frame 3D 공간 상에 둥둥 떠 있는 대화형 핀들로 실시간 매핑 배치합니다.
+         * @returns {void}
+         */
+        function generateArPinsOnWheelAnchor() {
+            try {
+                const wheelAnchorElement = document.getElementById('wheelAnchor');
+                if (!wheelAnchorElement) return;
+                wheelAnchorElement.innerHTML = ''; 
+
+                if (!Array.isArray(ecuData) || ecuData.length === 0) {
+                    console.warn("generateArPinsOnWheelAnchor: No active ecuData loaded.");
+                    return;
+                }
+
+                // 2D 측면 도면 이미지 상의 실제 앞바퀴 휠 정중앙 좌표 (%)
+                // side_view.png 내의 앞바퀴 휠 센터축 좌표 매칭 (3D 이미지 트래킹 앵커 원점)
+                const WHEEL_CENTER_2D = { x: 17.5, y: 68.5 }; 
+
+                // 2D 퍼센트(%) 단위를 3D AR 공간의 실제 미터(Meter) 단위로 환산하는 정밀 축척 팩터 (휠베이스 비례)
+                const SCALE_FACTOR = 0.043; 
+
+                ecuData.forEach(ecuNode => {
+                    if (!ecuNode.coords || !ecuNode.coords.side) return;
+
+                    // [선택 노드 집중] 필터 모드일 때, 선택된 노드 및 그와 직접 연결된 노드만 통과
+                    if (arFilterMode === 'selected' && selectedEcuId) {
+                        const selectedNode = ecuData.find(n => n.id === selectedEcuId);
+                        const isSelf = (ecuNode.id === selectedEcuId);
+                        const isLinked = selectedNode && selectedNode.links && selectedNode.links.includes(ecuNode.id);
+                        if (!isSelf && !isLinked) {
+                            return; // 렌더링 스킵
+                        }
+                    }
+
+                    const sideCoord = ecuNode.coords.side;
+                    
+                    // 앞바퀴 중심 대비 상대적 2D 델타거리 계산
+                    const deltaX = sideCoord.x - WHEEL_CENTER_2D.x;
+                    // 웹 좌표(아래가 +Y)와 A-Frame 3D 공간(위가 +Y)의 방향 반전을 매칭하기 위해 부호 반전
+                    const deltaY = WHEEL_CENTER_2D.y - sideCoord.y; 
+
+                    // 3D 공간의 X, Y 미터 오프셋 산출
+                    const offsetX = deltaX * SCALE_FACTOR;
+                    const offsetY = deltaY * SCALE_FACTOR;
+                    const offsetZ = 0.0; // 기본 측면 2D 투영 평면
+
+                    const domainColor = getDomainColor(ecuNode.domain);
+                    const isConnector = ecuNode.type === 'connector';
+                    const isSelected = (selectedEcuId === ecuNode.id);
+
+                    // 핀을 묶을 기본 그룹 엔티티
+                    const pinGroup = document.createElement('a-entity');
+                    pinGroup.setAttribute('position', `${offsetX} ${offsetY} ${offsetZ}`);
+                    // 항상 카메라 정면을 바라보도록 Billboard 속성 주입 (텍스트 납작해짐 및 숨겨짐 방지)
+                    pinGroup.setAttribute('look-at', '#arCameraSide');
+
+                    // 핀 기본 도형 (ECU: 원형, CONNECTOR: 마름모)
+                    const pinGeometry = document.createElement('a-entity');
+                    if (isConnector) {
+                        pinGeometry.setAttribute('geometry', 'primitive: plane; width: 0.055; height: 0.055');
+                        pinGeometry.setAttribute('rotation', '0 0 45');
+                        pinGeometry.setAttribute('material', `color: ${domainColor}; shader: flat; transparent: true; opacity: 0.9;`);
+                    } else {
+                        pinGeometry.setAttribute('geometry', 'primitive: circle; radius: 0.038');
+                        pinGeometry.setAttribute('material', `color: ${domainColor}; shader: flat; transparent: true; opacity: 0.9;`);
+                    }
+
+                    // 선택된 핀의 경우 하이라이트 흰색 테두리 추가
+                    if (isSelected) {
+                        const borderRing = document.createElement('a-entity');
+                        borderRing.setAttribute('geometry', 'primitive: ring; radiusInner: 0.040; radiusOuter: 0.048');
+                        borderRing.setAttribute('material', 'color: #FFFFFF; shader: flat; transparent: true; opacity: 1.0;');
+                        pinGroup.appendChild(borderRing);
+                    }
+
+                    // 텍스트 라벨 (BMS, ADAS 등 영문 ID 명칭)
+                    // 핀 중심에서 0.07m(7cm) 위쪽으로 분리하여 공중에 띄우는 a-text 방식으로 개편 (Z-fighting 방지)
+                    const textLabel = document.createElement('a-text');
+                    textLabel.setAttribute('value', ecuNode.id);
+                    textLabel.setAttribute('align', 'center');
+                    textLabel.setAttribute('color', '#FFFFFF');
+                    textLabel.setAttribute('width', '1.4'); // 가독성 높은 최적 크기
+                    textLabel.setAttribute('position', '0 0.07 0.01'); // 핀 위쪽 공중에 배치하고 Z축으로 1cm 앞쪽으로 밀어 Z-fighting 방지
+                    textLabel.setAttribute('font', 'mozillavr'); // 브라우저 호환성이 가장 뛰어난 빌트인 폰트 사용
+
+                    pinGroup.appendChild(pinGeometry);
+                    pinGroup.appendChild(textLabel);
+
+                    // 클릭 상호작용 등록을 위한 clickable 클래스 부여 및 클릭 리스너 연결
+                    pinGroup.setAttribute('class', 'clickable');
+                    pinGroup.addEventListener('click', () => {
+                        selectECU(ecuNode.id);
+                        // 선택 시 선택된 핀을 리프레시하여 테두리 링을 반영하기 위해 A-Frame 핀 맵 재출력
+                        generateArPinsOnWheelAnchor();
+                    });
+
+                    wheelAnchorElement.appendChild(pinGroup);
+                });
+            } catch (error) {
+                console.error("generateArPinsOnWheelAnchor failed:", error);
+            }
+        }
+
+        let isArSystemActive = false;
+
+        function startCamera() {
+            const arContainer = document.getElementById('arSceneContainer');
+            const virtualCanvas = document.getElementById('virtualCameraCanvas');
+
+            if (arContainer) arContainer.classList.remove('hidden');
+            virtualCanvas.style.display = 'none';
+
+            try {
+                const sceneEl = document.getElementById('arScene');
+                if (sceneEl) {
+                    setupMindArEvents();
+                    
+                    const runStart = () => {
+                        const arSystem = sceneEl.systems["mindar-image-system"];
+                        if (arSystem && !isArSystemActive) {
+                            arSystem.start();
+                            isArSystemActive = true;
+                            const arIcon = document.getElementById('arCameraIcon');
+                            if (arIcon) arIcon.className = "fa-solid fa-camera text-appleLink";
+                            document.getElementById('arModeBtnText').innerText = "AR 스캔 중";
+                        }
+                    };
+
+                    if (sceneEl.hasLoaded) {
+                        runStart();
+                    } else {
+                        sceneEl.addEventListener('loaded', runStart);
+                    }
+                }
+            } catch (error) {
+                console.warn("실물 AR 컴포넌트 연동 실패, 가상 시뮬레이터로 우회합니다.", error);
+                if (arContainer) arContainer.classList.add('hidden');
+                startVirtualCameraSimulation();
+            }
+        }
+
+        function stopCamera() {
+            const arContainer = document.getElementById('arSceneContainer');
+            const virtualCanvas = document.getElementById('virtualCameraCanvas');
+
+            try {
+                const sceneEl = document.getElementById('arScene');
+                if (sceneEl && isArSystemActive) {
+                    const arSystem = sceneEl.systems["mindar-image-system"];
+                    if (arSystem) {
+                        arSystem.stop();
+                        isArSystemActive = false;
+                    }
+                }
+            } catch (e) {
+                console.error("AR 중지 처리 실패:", e);
+            }
+
+            if (arContainer) arContainer.classList.add('hidden');
+
+            if (canvasAnimationId) {
+                cancelAnimationFrame(canvasAnimationId);
+                canvasAnimationId = null;
+            }
+            virtualCanvas.style.display = 'none';
+        }
+
+        function startVirtualCameraSimulation() {
+            const canvas = document.getElementById('virtualCameraCanvas');
+            if (!canvas) return;
+            const ctx = canvas.getContext('2d');
+            
+            const wrapper = document.getElementById('vehicleSvgWrapper');
+            const rect = wrapper.getBoundingClientRect();
+            canvas.width = rect.width;
+            canvas.height = rect.height;
+
+            let scanProgress = 0;
+            let noiseFrame = 0;
+
+            function drawFrame() {
+                if (!isArMode) return;
+                
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                
+                ctx.fillStyle = '#050505';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.04)';
+                ctx.lineWidth = 1;
+                for (let i = 0; i < canvas.width; i += 40) {
+                    ctx.beginPath();
+                    ctx.moveTo(i, 0);
+                    ctx.lineTo(i, canvas.height);
+                    ctx.stroke();
+                }
+                for (let j = 0; j < canvas.height; j += 40) {
+                    ctx.beginPath();
+                    ctx.moveTo(0, j);
+                    ctx.lineTo(canvas.width, j);
+                    ctx.stroke();
+                }
+
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
+                ctx.beginPath();
+                ctx.arc(canvas.width / 2, canvas.height / 2, 120, 0, Math.PI * 2);
+                ctx.stroke();
+
+                noiseFrame++;
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.15)';
+                ctx.font = '10px Inter';
+                ctx.fillText(`RAW VIDEO FEED [MOCK] | HERTZ: 60Hz`, 20, 30);
+                ctx.fillText(`ORIENTATION: ${currentView.toUpperCase()}`, 20, 45);
+
+                if (noiseFrame % 2 === 0) {
+                    ctx.fillStyle = 'rgba(255, 255, 255, 0.015)';
+                    for (let n = 0; n < 200; n++) {
+                        const nx = Math.random() * canvas.width;
+                        const ny = Math.random() * canvas.height;
+                        ctx.fillRect(nx, ny, 1, 1);
+                    }
+                }
+
+                canvasAnimationId = requestAnimationFrame(drawFrame);
+            }
+
+            drawFrame();
+            
+            const arIcon = document.getElementById('arCameraIcon');
+            arIcon.className = "fa-solid fa-desktop text-appleLink";
+            document.getElementById('arModeBtnText').innerText = "AR 시뮬레이터 ON";
+        }
+
+        function triggerArScanning() {
+            if (isScanning || !isArMode) return;
+            isScanning = true;
+
+            const scanBar = document.getElementById('laserScanBar');
+            const statusTxt = document.getElementById('arStatusText');
+            const indicatorPing = document.getElementById('arIndicatorPing');
+            const scanBtn = document.getElementById('arScanBtn');
+
+            scanBtn.disabled = true;
+            scanBtn.classList.add('opacity-40', 'cursor-not-allowed');
+
+            scanBar.classList.add('active');
+            statusTxt.innerText = "차량 위치 매핑 중...";
+            indicatorPing.className = "inline-block w-2 h-2 rounded-full bg-amber-500 animate-ping";
+
+            setTimeout(() => {
+                scanBar.classList.remove('active');
+                statusTxt.innerText = "AR 인식 완료";
+                indicatorPing.className = "inline-block w-2 h-2 rounded-full bg-emerald-500 animate-ping";
+
+                document.querySelectorAll('.focus-guide-corner').forEach(corner => {
+                    corner.classList.add('aligned');
+                });
+
+                isArAligned = true;
+                renderEcuPins(); 
+                
+                document.getElementById('arSeeThroughWrapper').classList.remove('hidden');
+                document.getElementById('arSeeThroughSlider').value = 100;
+                handleSeeThrough(100);
+
+                isScanning = false;
+                scanBtn.disabled = false;
+                scanBtn.classList.remove('opacity-40', 'cursor-not-allowed');
+            }, 1600);
+        }
+
+        function handleSeeThrough(value) {
+            arSeeThroughOpacity = parseFloat(value) / 100;
+            const percentageText = document.getElementById('arSeeThroughVal');
+            if (percentageText) {
+                if (value == 100) percentageText.innerText = "100% (불투명)";
+                else if (value == 10) percentageText.innerText = "10% (투명)";
+                else percentageText.innerText = `${value}%`;
+            }
+
+            applySeeThroughOpacity();
+        }
+
+        function applySeeThroughOpacity() {
+            const sideImg = document.getElementById('svgSideView');
+            const frontImg = document.getElementById('svgFrontView');
+
+            if (isArMode) {
+                if (sideImg) sideImg.style.opacity = arSeeThroughOpacity * 0.45; 
+                if (frontImg) frontImg.style.opacity = arSeeThroughOpacity * 0.45;
+            } else {
+                restoreOriginalVehicleOpacity();
+            }
+        }
+
+        function restoreOriginalVehicleOpacity() {
+            const topImg = document.getElementById('svgTopView');
+            const sideImg = document.getElementById('svgSideView');
+            const frontImg = document.getElementById('svgFrontView');
+
+            if (topImg) topImg.style.opacity = '0.2';
+            if (sideImg) sideImg.style.opacity = '0.2';
+            if (frontImg) frontImg.style.opacity = '0.2';
+        }
+
+        function toggleMobileDrawer(side) {
+            const leftDrawer = document.querySelector('aside.w-\\[300px\\]');
+            const rightDrawer = document.querySelector('aside.w-\\[340px\\]');
+            const overlay = document.getElementById('drawerOverlay');
+
+            if (!leftDrawer || !rightDrawer || !overlay) return;
+
+            if (side === 'left') {
+                rightDrawer.classList.remove('drawer-open');
+                leftDrawer.classList.toggle('drawer-open');
+            } else if (side === 'right') {
+                leftDrawer.classList.remove('drawer-open');
+                rightDrawer.classList.toggle('drawer-open');
+            } else {
+                leftDrawer.classList.remove('drawer-open');
+                rightDrawer.classList.remove('drawer-open');
+            }
+
+            const isAnyOpen = leftDrawer.classList.contains('drawer-open') || rightDrawer.classList.contains('drawer-open');
+            if (isAnyOpen) {
+                overlay.classList.add('active');
+            } else {
+                overlay.classList.remove('active');
+            }
+        }
+
+        // 브라우저 윈도우 크기 변경 시 차량 정렬 유도 리사이즈 이벤트 바인딩
+        window.addEventListener('resize', () => {
+            if (typeof resizeVehicleCanvas === 'function') {
+                resizeVehicleCanvas();
+                renderNetworkConnections();
+            }
+        });
+    </script>
+</body>
+</html>
