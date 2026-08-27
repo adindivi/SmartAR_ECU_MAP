@@ -121,9 +121,8 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             androidx.compose.foundation.layout.Box(modifier = Modifier.fillMaxSize()) {
-                if (hasCameraPermission.value) {
-                    CameraPreview(modifier = Modifier.fillMaxSize())
-                }
+                // [아키텍처 수정] 네이티브 CameraX(CameraPreview) 중단.
+                // 웹뷰 내부의 Mind-AR (WebRTC)가 단독으로 카메라 제어권을 획득하여 타이어 이미지를 트래킹하도록 함.
                 WebViewContainer(
                     assetUrl = "file:///android_asset/SmartAR_ECU_MAP_Mobile.html",
                     javascriptInterface = AndroidBridge(),
