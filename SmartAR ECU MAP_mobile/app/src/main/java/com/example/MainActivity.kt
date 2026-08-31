@@ -56,8 +56,25 @@ class MainActivity : ComponentActivity() {
         hasCameraPermission.value = isGranted
         if (isGranted) {
             Toast.makeText(this, "카메라 권한이 승인되었습니다.", Toast.LENGTH_SHORT).show()
+            // JS로 결과 전송
+            runOnUiThread {
+                webView?.evaluateJavascript("window.onCameraPermissionResult(true);", null)
+            }
         } else {
-            Toast.makeText(this, "AR 기능을 사용하려면 카메라 권한이 필요합니다.", Toast.LENGTH_LONG).show()
+            // JS로 실패 전송
+            runOnUiThread {
+                webView?.evaluateJavascript("window.onCameraPermissionResult(false);", null)
+            }
+            if (!androidx.core.app.ActivityCompat.shouldShowRequestPermissionRationale(this, Manifest.permission.CAMERA)) {
+                Toast.makeText(this, "카메라 권한이 영구 거부되었습니다. 설정에서 권한을 허용해주세요.", Toast.LENGTH_LONG).show()
+                // 앱 설정 화면으로 이동
+                val intent = android.content.Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
+                val uri = android.net.Uri.fromParts("package", packageName, null)
+                intent.data = uri
+                startActivity(intent)
+            } else {
+                Toast.makeText(this, "AR 기능을 사용하려면 카메라 권한이 필요합니다.", Toast.LENGTH_LONG).show()
+            }
         }
     }
 
@@ -111,12 +128,6 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // 카메라 권한 초기 확인 및 요청
-        hasCameraPermission.value = ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
-        if (!hasCameraPermission.value) {
-            cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
-        }
-
         // 뒤로가기 처리를 위한 OnBackPressedCallback 등록 (Deprecated onBackPressed 대체)
         onBackPressedDispatcher.addCallback(this, object : androidx.activity.OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
@@ -153,6 +164,25 @@ class MainActivity : ComponentActivity() {
     }
 
     inner class AndroidBridge {
+
+        @JavascriptInterface
+        fun requestCameraPermission() {
+            val isGranted = ContextCompat.checkSelfPermission(
+                this@MainActivity, Manifest.permission.CAMERA
+            ) == PackageManager.PERMISSION_GRANTED
+            
+            if (isGranted) {
+                // 이미 권한이 있으면 JS로 즉시 완료 콜백
+                runOnUiThread {
+                    webView?.evaluateJavascript("window.onCameraPermissionResult(true);", null)
+                }
+            } else {
+                // 권한이 없으면 팝업 띄우기 (반드시 UI 스레드에서 호출)
+                runOnUiThread {
+                    cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
+                }
+            }
+        }
 
         @JavascriptInterface
         fun saveData(jsonStr: String) {

@@ -163,6 +163,17 @@
             }
         }
 
+        /* Mind-AR 카메라 뷰를 꽉 찬 전체화면으로 강제 조정 (여백/비율 깨짐 방지) */
+        video {
+            width: 100vw !important;
+            height: 100vh !important;
+            object-fit: cover !important;
+            position: absolute !important;
+            top: 0 !important;
+            left: 0 !important;
+            z-index: -1 !important;
+        }
+
         @keyframes modalEnter {
             from { opacity: 0; transform: scale(0.96); }
             to { opacity: 1; transform: scale(1); }
@@ -327,8 +338,8 @@
         </aside>
 
         <main class="flex-1 relative bg-transparent flex items-center justify-center overflow-hidden">
-            <div id="arSceneContainer" class="absolute inset-0 w-full h-full z-0 hidden">
-                <a-scene id="arScene" mindar-image="imageTargetSrc: ./car_image/tire_targets.mind; autoStart: false; uiLoading: no; uiScanning: no; uiError: no; filterMinCF: 0.0001; filterBeta: 0.0001;" 
+            <div id="arSceneContainer" class="absolute inset-0 w-full h-full z-0 opacity-0 pointer-events-none transition-opacity duration-300">
+                <a-scene id="arScene" mindar-image="imageTargetSrc: ./car_image/tire_targets.mind; autoStart: true; uiLoading: no; uiScanning: no; uiError: no; filterMinCF: 0.0001; filterBeta: 0.0001;" 
                          embedded vr-mode-ui="enabled: false" device-orientation-permission-ui="enabled: false"
                          style="width: 100%; height: 100%; position: absolute;">
                     <a-camera id="arCamera" position="0 0 0" look-controls="enabled: false"></a-camera>
@@ -630,7 +641,7 @@
         </div>
     </div>
 
-    <div id="dtcManagerPopup" class="fixed hidden bg-slate-950/95 border border-slate-800 rounded-2xl w-60 p-4 shadow-2xl z-45 select-none backdrop-blur-md">
+    <div id="dtcManagerPopup" class="fixed hidden bg-slate-950/95 border border-slate-800 rounded-2xl w-60 p-4 shadow-2xl z-50 select-none backdrop-blur-md">
         <div class="flex items-center justify-between pb-2 border-b border-slate-850 mb-2">
             <h4 id="dtcPopupTitle" class="text-[11px] font-bold text-white flex items-center space-x-1.5">
                 <i class="fa-solid fa-triangle-exclamation text-rose-500 animate-pulse text-[10px]"></i>
@@ -1743,18 +1754,20 @@
             document.getElementById('dtcManagerPopup').classList.add('hidden');
         }
 
-        function toggleArMode() {
-            isArMode = !isArMode;
-            const arBtn = document.getElementById('arModeToggleBtn');
-            const arText = document.getElementById('arModeBtnText');
-            const carImages = document.querySelectorAll('#svgTopView img, #svgSideView img, #svgFrontView img');
-            
-            if (isArMode) {
+        window.onCameraPermissionResult = function(isGranted) {
+            if (isGranted) {
+                const arText = document.getElementById('arModeBtnText');
+                const carImages = document.querySelectorAll('#svgTopView img, #svgSideView img, #svgFrontView img');
+                const arContainer = document.getElementById('arSceneContainer');
+                
                 arText.innerText = "AR 스캔 중";
                 document.documentElement.style.backgroundColor = 'transparent';
                 document.body.style.backgroundColor = 'transparent';
+                if (arContainer) {
+                    arContainer.classList.remove('opacity-0', 'pointer-events-none');
+                    arContainer.classList.add('opacity-100', 'pointer-events-auto');
+                }
                 
-                // AR 모드: 차량 이미지를 반투명하게 처리하여 카메라 시야 확보 (추천 투명도 35%)
                 carImages.forEach(img => {
                     img.style.opacity = '0.35';
                     img.style.transition = 'opacity 0.4s ease';
@@ -1762,19 +1775,45 @@
                 
                 AndroidHelper.setLandscapeLock(true);
                 triggerArScanning();
+                renderEcuPins();
             } else {
+                isArMode = false;
+                AndroidHelper.showToast("카메라 권한이 없어 AR 모드를 실행할 수 없습니다.");
+            }
+        };
+
+        function toggleArMode() {
+            if (!isArMode) {
+                // 켜는 동작일 때 권한 먼저 요청
+                isArMode = true;
+                if (window.AndroidBridge && window.AndroidBridge.requestCameraPermission) {
+                    window.AndroidBridge.requestCameraPermission();
+                } else {
+                    // 브릿지가 없으면 바로 성공으로 간주(테스트용)
+                    window.onCameraPermissionResult(true);
+                }
+            } else {
+                // 끄는 동작
+                isArMode = false;
+                const arText = document.getElementById('arModeBtnText');
+                const carImages = document.querySelectorAll('#svgTopView img, #svgSideView img, #svgFrontView img');
+                const arContainer = document.getElementById('arSceneContainer');
+                
                 arText.innerText = "AR 모드 OFF";
                 document.documentElement.style.backgroundColor = '#000000';
                 document.body.style.backgroundColor = '#000000';
+                if (arContainer) {
+                    arContainer.classList.remove('opacity-100', 'pointer-events-auto');
+                    arContainer.classList.add('opacity-0', 'pointer-events-none');
+                }
                 
-                // 일반 모드: 차량 이미지 투명도 원상복구
                 carImages.forEach(img => {
                     img.style.opacity = '1';
                 });
                 
                 AndroidHelper.setLandscapeLock(false);
+                renderEcuPins();
             }
-            renderEcuPins();
         }
 
         function triggerArScanning() {

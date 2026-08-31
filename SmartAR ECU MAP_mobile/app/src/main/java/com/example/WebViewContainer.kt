@@ -76,8 +76,10 @@ fun WebViewContainer(
                         if (onPermissionRequestCallback != null) {
                             onPermissionRequestCallback(request)
                         } else {
-                            // Default: automatically grant requested permissions (e.g. CAMERA)
-                            request.grant(request.resources)
+                            // UI 스레드에서 권한 부여를 실행해야 WebRTC 카메라가 정상 작동함
+                            post {
+                                request.grant(request.resources)
+                            }
                         }
                     }
                 }
