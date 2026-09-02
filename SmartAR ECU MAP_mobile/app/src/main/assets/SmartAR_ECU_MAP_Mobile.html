@@ -102,13 +102,27 @@
             will-change: transform, margin, opacity;
         }
         @media (min-width: 768px) {
+            #leftPanel {
+                position: absolute;
+                left: 0;
+                top: 0;
+                bottom: 0;
+                z-index: 50;
+            }
             #leftPanel.collapsed {
-                margin-left: -300px;
+                transform: translateX(-100%);
                 opacity: 0;
                 pointer-events: none;
             }
+            #rightPanel {
+                position: absolute;
+                right: 0;
+                top: 0;
+                bottom: 0;
+                z-index: 50;
+            }
             #rightPanel.collapsed {
-                margin-right: -340px;
+                transform: translateX(100%);
                 opacity: 0;
                 pointer-events: none;
             }
