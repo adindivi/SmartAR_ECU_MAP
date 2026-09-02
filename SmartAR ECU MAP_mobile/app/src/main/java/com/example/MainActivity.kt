@@ -147,7 +147,7 @@ class MainActivity : ComponentActivity() {
                 // [아키텍처 수정] 네이티브 CameraX(CameraPreview) 중단.
                 // 웹뷰 내부의 Mind-AR (WebRTC)가 단독으로 카메라 제어권을 획득하여 타이어 이미지를 트래킹하도록 함.
                 WebViewContainer(
-                    assetUrl = "file:///android_asset/SmartAR_ECU_MAP_Mobile.html",
+                    assetUrl = "https://appassets.androidplatform.net/assets/SmartAR_ECU_MAP_Mobile.html",
                     javascriptInterface = AndroidBridge(),
                     interfaceName = "AndroidBridge",
                     onWebViewCreated = { instance ->
@@ -239,10 +239,14 @@ class MainActivity : ComponentActivity() {
             }
         }
 
+        private var currentToast: Toast? = null
+
         @JavascriptInterface
         fun showToast(message: String) {
             runOnUiThread {
-                Toast.makeText(this@MainActivity, message, Toast.LENGTH_SHORT).show()
+                currentToast?.cancel()
+                currentToast = Toast.makeText(this@MainActivity, message, Toast.LENGTH_SHORT)
+                currentToast?.show()
             }
         }
 

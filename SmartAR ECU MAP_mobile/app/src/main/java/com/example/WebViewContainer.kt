@@ -86,13 +86,40 @@ fun WebViewContainer(
             }
 
             webViewClient = object : WebViewClient() {
+                override fun shouldInterceptRequest(
+                    view: WebView?,
+                    request: android.webkit.WebResourceRequest?
+                ): android.webkit.WebResourceResponse? {
+                    val url = request?.url?.toString() ?: ""
+                    if (url.startsWith("https://appassets.androidplatform.net/assets/")) {
+                        val assetPath = url.replace("https://appassets.androidplatform.net/assets/", "")
+                        try {
+                            val inputStream = context.assets.open(assetPath)
+                            var mimeType = "text/html"
+                            if (assetPath.endsWith(".mind")) mimeType = "application/octet-stream"
+                            else if (assetPath.endsWith(".png")) mimeType = "image/png"
+                            else if (assetPath.endsWith(".jpg") || assetPath.endsWith(".jpeg")) mimeType = "image/jpeg"
+                            else if (assetPath.endsWith(".js")) mimeType = "application/javascript"
+                            else if (assetPath.endsWith(".css")) mimeType = "text/css"
+                            
+                            val response = android.webkit.WebResourceResponse(mimeType, "UTF-8", inputStream)
+                            response.responseHeaders = mutableMapOf(
+                                "Access-Control-Allow-Origin" to "*"
+                            )
+                            return response
+                        } catch (e: Exception) {
+                            e.printStackTrace()
+                        }
+                    }
+                    return super.shouldInterceptRequest(view, request)
+                }
+
                 @SuppressLint("WebViewClientOnReceivedSslError")
                 override fun onReceivedSslError(
                     view: WebView?,
-                    handler: SslErrorHandler?,
-                    error: SslError?
+                    handler: android.webkit.SslErrorHandler?,
+                    error: android.net.http.SslError?
                 ) {
-                    // Proceed so SSL handshake issues in sandbox / testing environments do not block asset rendering
                     handler?.proceed()
                 }
             }
