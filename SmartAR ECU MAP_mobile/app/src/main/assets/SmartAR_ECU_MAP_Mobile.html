@@ -8,13 +8,13 @@
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     
-    <!-- A-Frame �?Mind-AR CDN (Image tracking & A-Frame integration) -->
+    <!-- A-Frame 및 Mind-AR CDN (Image tracking & A-Frame integration) -->
     <script src="https://aframe.io/releases/1.2.0/aframe.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.1.4/dist/mindar-image.prod.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.1.4/dist/mindar-image-aframe.prod.js"></script>
     <script src="https://unpkg.com/aframe-look-at-component@0.8.0/dist/aframe-look-at-component.min.js"></script>
     
-    <!-- 모바???�롬 개발??콘솔 ?�러 로그 ?�버�?-->
+    <!-- 모바일 크롬 개발자 콘솔 에러 로그 디버거 -->
     <script src="https://cdn.jsdelivr.net/npm/eruda"></script>
     <script>
         const DEVELOPER_MODE = false;
@@ -28,7 +28,7 @@
         }
     </script>
     
-    <!-- FontAwesome ?�이�?CDN -->
+    <!-- FontAwesome 아이콘 CDN -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
     <!-- Google Fonts: Inter & JetBrains Mono -->
@@ -177,7 +177,7 @@
             }
         }
 
-        /* Mind-AR 카메??뷰�? �?�??�체?�면?�로 강제 조정 (?�백/비율 깨짐 방�?) */
+        /* Mind-AR 카메라 뷰를 꽉 찬 전체화면으로 강제 조정 (여백/비율 깨짐 방지) */
         video {
             width: 100vw !important;
             height: 100vh !important;
@@ -251,16 +251,16 @@
             <i class="fa-solid fa-mobile-screen-button text-white text-4xl animate-bounce"></i>
             <i class="fa-solid fa-rotate-right absolute text-appleLink text-lg top-2 right-2"></i>
         </div>
-        <h3 class="text-lg font-bold text-white mb-2 tracking-wide">?�면??가로로 ?�전??주세??/h3>
+        <h3 class="text-lg font-bold text-white mb-2 tracking-wide">화면을 가로로 회전해 주세요</h3>
         <p class="text-xs text-appleTextMuted leading-relaxed max-w-xs break-keep">
-            차량 ?�상 ?�식 �??�어�??�버?�이 배치??**가�?Landscape) 촬영 모드**??최적?�되???�습?�다.
+            차량 형상 인식 및 제어기 오버레이 배치는 **가로(Landscape) 촬영 모드**에 최적화되어 있습니다.
         </p>
         <button onclick="exitArModeForce()" class="mt-6 px-4 py-2 rounded-full bg-slate-900 border border-slate-800 hover:border-white text-xs text-slate-300 font-semibold transition-all">
             AR 모드 종료
         </button>
     </div>
 
-    <!-- [?�단 ?�더 �? -->
+    <!-- [상단 헤더 바] -->
     <header class="h-12 border-b border-arBorder bg-arPanel/90 px-3 flex items-center justify-between z-30 shrink-0 backdrop-blur-md">
         <div class="flex items-center space-x-2">
             <i class="fa-solid fa-microchip text-appleLink text-lg"></i>
@@ -289,8 +289,8 @@
             </button>
 
             <div id="arFilterModeGroup" class="hidden bg-slate-900/80 p-1 rounded-full border border-slate-800 flex text-xs">
-                <button id="arFilterAllBtn" onclick="setArFilterMode('all')" class="px-3 py-1 rounded-full bg-appleLink text-white font-bold transition">?�체 ?�드</button>
-                <button id="arFilterSelBtn" onclick="setArFilterMode('selected')" class="px-3 py-1 rounded-full text-slate-400 hover:text-white transition">?�택 ?�드</button>
+                <button id="arFilterAllBtn" onclick="setArFilterMode('all')" class="px-3 py-1 rounded-full bg-appleLink text-white font-bold transition">전체 노드</button>
+                <button id="arFilterSelBtn" onclick="setArFilterMode('selected')" class="px-3 py-1 rounded-full text-slate-400 hover:text-white transition">선택 노드</button>
             </div>
 
             <div id="viewControllerGroup" class="bg-slate-900/80 p-1 rounded-full border border-slate-800 flex text-xs">
@@ -301,28 +301,28 @@
 
             <button onclick="openAddEcuModal()" class="px-3 py-1.5 rounded-full border border-slate-700 bg-slate-900/40 hover:bg-slate-800 text-xs font-semibold flex items-center space-x-1.5 transition-all">
                 <i class="fa-solid fa-plus text-appleLink"></i>
-                <span class="hidden lg:inline">?�드 추�?</span>
+                <span class="hidden lg:inline">노드 추가</span>
             </button>
 
             <button onclick="requestEditMode()" class="px-3 py-1.5 rounded-full border border-slate-700 bg-slate-900/40 hover:bg-slate-800 text-xs font-semibold flex items-center space-x-1.5 transition-all">
                 <i class="fa-solid fa-lock" id="editLockIcon"></i>
-                <span id="editBtnText" class="hidden lg:inline">?�치 ?�팅 (?�금)</span>
+                <span id="editBtnText" class="hidden lg:inline">위치 세팅 (잠금)</span>
             </button>
             
-            <!-- ?�롭?�운 메뉴 (?�보�? -->
+            <!-- 드롭다운 메뉴 (더보기) -->
             <div class="relative ml-1">
                 <button onclick="document.getElementById('moreMenuDropdown').classList.toggle('hidden')" class="px-2.5 py-1.5 rounded-full border border-slate-800 bg-slate-900/40 text-slate-400 hover:text-white text-xs font-semibold flex items-center transition-colors">
                     <i class="fa-solid fa-ellipsis-vertical"></i>
                 </button>
                 <div id="moreMenuDropdown" class="hidden absolute right-0 mt-2 w-40 bg-slate-900 border border-slate-700 rounded-lg shadow-xl py-1 z-50">
-                    <button onclick="openEcuTableModal(); document.getElementById('moreMenuDropdown').classList.add('hidden')" class="w-full text-left px-4 py-2 text-xs text-slate-300 hover:bg-slate-800 flex items-center"><i class="fa-solid fa-table-list w-5 text-center mr-2"></i>?�체 ?�이�?/button>
-                    <button onclick="resetPositions(); document.getElementById('moreMenuDropdown').classList.add('hidden')" class="w-full text-left px-4 py-2 text-xs text-rose-400 hover:bg-slate-800 flex items-center"><i class="fa-solid fa-rotate-left w-5 text-center mr-2"></i>공장 초기??/button>
+                    <button onclick="openEcuTableModal(); document.getElementById('moreMenuDropdown').classList.add('hidden')" class="w-full text-left px-4 py-2 text-xs text-slate-300 hover:bg-slate-800 flex items-center"><i class="fa-solid fa-table-list w-5 text-center mr-2"></i>전체 테이블</button>
+                    <button onclick="resetPositions(); document.getElementById('moreMenuDropdown').classList.add('hidden')" class="w-full text-left px-4 py-2 text-xs text-rose-400 hover:bg-slate-800 flex items-center"><i class="fa-solid fa-rotate-left w-5 text-center mr-2"></i>공장 초기화</button>
                 </div>
             </div>
         </div>
     </header>
 
-    <!-- [메인 ?�크?�페?�스] -->
+    <!-- [메인 워크스페이스] -->
     <div class="flex-1 flex overflow-hidden relative">
         <aside id="leftPanel" class="w-[300px] border-r border-arBorder bg-arPanel/50 flex flex-col shrink-0 z-10 backdrop-blur-sm">
             <div class="p-3 border-b border-arBorder">
@@ -343,7 +343,7 @@
             <div class="p-2 border-b border-arBorder/60 bg-slate-900/10">
                 <div class="relative">
                     <i class="fa-solid fa-magnifying-glass absolute left-2.5 top-2.5 text-xs text-slate-500"></i>
-                    <input type="text" id="searchInput" oninput="handleSearch()" placeholder="?�어�?검??.." 
+                    <input type="text" id="searchInput" oninput="handleSearch()" placeholder="제어기 검색..." 
                            class="w-full bg-slate-950 border border-slate-800 rounded-lg pl-8 pr-3 py-1.5 text-xs text-slate-200 placeholder-slate-650 focus:outline-none focus:border-slate-500 transition-colors">
                 </div>
             </div>
@@ -386,7 +386,7 @@
                     
                     <button id="arScanBtn" onclick="triggerArScanning()" class="pointer-events-auto absolute bottom-8 px-5 py-2.5 rounded-full border border-slate-700 bg-black/80 hover:bg-slate-900 text-white text-xs font-semibold tracking-wider transition-all flex items-center space-x-2">
                         <i class="fa-solid fa-expand-arrows-alt animate-pulse text-appleLink"></i>
-                        <span>AR ?�식 ?�료</span>
+                        <span>AR 인식 완료</span>
                     </button>
                 </div>
             </div>
@@ -395,7 +395,7 @@
 
             <div id="arStatusIndicator" class="hidden absolute top-4 left-1/2 transform -translate-x-1/2 bg-black/90 border border-slate-800 text-white font-mono text-xs px-5 py-3 rounded-full z-30 shadow-2xl tracking-wider text-center flex items-center space-x-2.5">
                 <span id="arIndicatorPing" class="inline-block w-2 h-2 rounded-full bg-appleLink animate-ping"></span>
-                <span id="arStatusText">차량??카메??중앙??맞춰 주세??</span>
+                <span id="arStatusText">차량을 카메라 중앙에 맞춰 주세요.</span>
             </div>
 
             <div id="vehicleSvgWrapper" class="relative w-[92%] h-[92%] flex items-center justify-center">
@@ -427,7 +427,7 @@
             <div class="p-4 border-b border-arBorder flex items-center justify-between bg-slate-900/20">
                 <span id="detailPanelHeaderTitle" class="text-xs font-bold text-slate-300 tracking-wider flex items-center">
                     <i class="fa-solid fa-circle-nodes text-appleLink mr-2"></i>
-                    ?�세 모니?�링
+                    상세 모니터링
                 </span>
                 <button onclick="togglePanel('right')" class="text-slate-400 hover:text-white text-xl leading-none transition-colors px-1">&times;</button>
             </div>
@@ -437,17 +437,17 @@
                     <div class="flex items-center justify-between mb-2">
                         <span id="detailEcuId" class="text-[26px] font-bold font-mono text-white">MDPS</span>
                     </div>
-                    <div id="detailEcuName" class="text-sm font-semibold text-slate-200 mb-1 break-keep">?�동???�워 ?�티?�링</div>
-                    <div id="detailEcuDesc" class="text-xs text-appleTextMuted leading-relaxed break-keep">?�진 분사, ?�화 �??�료 ?�율 ?�제 ?�어�?/div>
+                    <div id="detailEcuName" class="text-sm font-semibold text-slate-200 mb-1 break-keep">전동식 파워 스티어링</div>
+                    <div id="detailEcuDesc" class="text-xs text-appleTextMuted leading-relaxed break-keep">엔진 분사, 점화 및 연료 효율 통제 제어기</div>
                     
                     <div class="mt-4 pt-3 border-t border-slate-800/80 flex justify-end space-x-2">
                         <button onclick="openEditEcuModal()" class="px-3 py-1.5 rounded-full bg-slate-900 border border-slate-800 hover:border-slate-600 text-slate-300 hover:text-white text-xs font-semibold flex items-center space-x-1.5 transition">
                             <i class="fa-solid fa-pen-to-square text-appleLink"></i>
-                            <span>?�정</span>
+                            <span>수정</span>
                         </button>
                         <button onclick="deleteSelectedEcu()" class="px-3 py-1.5 rounded-full bg-rose-950/40 border border-rose-900/60 hover:bg-rose-900/50 text-rose-400 hover:text-rose-200 text-xs font-semibold flex items-center space-x-1.5 transition">
                             <i class="fa-solid fa-trash-can"></i>
-                            <span>??��</span>
+                            <span>삭제</span>
                         </button>
                     </div>
                 </div>
@@ -456,9 +456,9 @@
                     <div class="flex items-center justify-between mb-2">
                         <span class="text-[11px] font-bold text-appleLink uppercase tracking-wider flex items-center space-x-1.5">
                             <i class="fa-solid fa-eye-slash"></i>
-                            <span>배경 ?�명??/span>
+                            <span>배경 투명도</span>
                         </span>
-                        <span id="arSeeThroughVal" class="text-[11px] font-mono text-appleTextMuted">100% (불투�?</span>
+                        <span id="arSeeThroughVal" class="text-[11px] font-mono text-appleTextMuted">100% (불투명)</span>
                     </div>
                     <input type="range" id="arSeeThroughSlider" min="10" max="100" value="100" oninput="handleSeeThrough(this.value)" class="w-full h-1.5 bg-slate-850 rounded-lg appearance-none cursor-pointer accent-appleLink focus:outline-none">
                 </div>
@@ -493,7 +493,7 @@
                     <button onclick="toggleAccordion('networkDetail')" class="w-full px-4 py-2.5 flex items-center justify-between bg-slate-900/40 hover:bg-slate-900/60 transition-colors focus:outline-none">
                         <span id="detailNetworkSectionTitle" class="text-[12px] font-bold text-slate-300 uppercase tracking-wider flex items-center">
                             <i class="fa-solid fa-network-wired text-appleLink mr-2 text-xs"></i>
-                            <span>?�결???�어�??�트?�크</span>
+                            <span>연결된 제어기 네트워크</span>
                         </span>
                         <i id="networkDetailChevron" class="fa-solid fa-chevron-down text-slate-500 text-xs chevron-icon rotated"></i>
                     </button>
@@ -507,23 +507,23 @@
             
             <div id="detailPanelEmpty" class="flex-1 flex flex-col items-center justify-center text-slate-500 text-sm">
                 <i class="fa-solid fa-circle-info text-3xl mb-3 opacity-40 text-appleTextMuted"></i>
-                <p class="text-xs text-appleTextMuted">?�드�??�릭?�여 ?�세 ?�인</p>
+                <p class="text-xs text-appleTextMuted">노드를 클릭하여 상세 확인</p>
             </div>
         </aside>
     </div>
 
-    <!-- 모달 �??�소??-->
+    <!-- 모달 창 요소들 -->
     <div id="passwordModal" class="fixed inset-0 bg-black/80 z-50 flex items-center justify-center hidden backdrop-blur-sm">
         <div class="bg-arPanel border border-arBorder p-6 rounded-2xl w-[90%] max-w-[320px] shadow-2xl modal-animate-enter">
             <h3 class="text-base font-bold text-white mb-4 tracking-wide flex items-center justify-center break-keep">
                 <i class="fa-solid fa-shield-halved text-appleLink mr-2"></i>
-                관리자 비�?번호 ?�력
+                관리자 비밀번호 입력
             </h3>
-            <input type="password" id="pwInput" placeholder="비�?번호(?�폴?? 0000)" 
+            <input type="password" id="pwInput" placeholder="비밀번호(디폴트: 0000)" 
                    class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white mb-3 placeholder-slate-650 focus:outline-none focus:border-slate-500 transition-colors font-mono">
-            <div id="pwError" class="text-rose-500 text-xs mb-3 hidden break-keep text-center leading-relaxed">비�?번호가 ?�치?��? ?�습?�다. ?�시 ?�력??주세??</div>
+            <div id="pwError" class="text-rose-500 text-xs mb-3 hidden break-keep text-center leading-relaxed">비밀번호가 일치하지 않습니다. 다시 입력해 주세요.</div>
             <div class="flex space-x-2 text-xs font-semibold">
-                <button onclick="verifyPassword()" class="flex-1 py-2 rounded-full bg-appleBlue text-white hover:bg-opacity-90 transition">?�인</button>
+                <button onclick="verifyPassword()" class="flex-1 py-2 rounded-full bg-appleBlue text-white hover:bg-opacity-90 transition">확인</button>
                 <button onclick="closePasswordModal()" class="flex-1 py-2 rounded-full bg-slate-800 text-slate-300 hover:bg-slate-700 transition">취소</button>
             </div>
         </div>
@@ -532,53 +532,53 @@
     <div id="addEcuModal" class="fixed inset-0 bg-black/80 z-50 flex items-center justify-center hidden backdrop-blur-sm">
         <div class="bg-arPanel border border-arBorder p-6 rounded-2xl w-[92%] max-w-[400px] max-h-[85vh] flex flex-col shadow-2xl modal-animate-enter">
             <h3 class="text-sm font-bold text-white mb-4 tracking-wide pb-2 border-b border-slate-800 flex items-center justify-between">
-                <span class="flex items-center"><i class="fa-solid fa-plus text-appleLink mr-2"></i>?�규 ?�드(ECU/커넥?? ?�성</span>
+                <span class="flex items-center"><i class="fa-solid fa-plus text-appleLink mr-2"></i>신규 노드(ECU/커넥터) 생성</span>
                 <button onclick="closeAddEcuModal()" class="text-slate-500 hover:text-white text-lg transition">&times;</button>
             </h3>
             
             <div class="flex-1 overflow-y-auto space-y-3.5 pr-1 text-xs">
                 <div>
-                    <label class="block text-slate-400 font-semibold mb-1.5 break-keep leading-snug">?�드 ?�형 ?�택</label>
+                    <label class="block text-slate-400 font-semibold mb-1.5 break-keep leading-snug">노드 유형 선택</label>
                     <select id="newEcuType" onchange="toggleAddModalTypeFields()" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-slate-500 transition-colors">
-                        <option value="ecu">ECU (?�어�?</option>
-                        <option value="connector">CONNECTOR (커넥??</option>
+                        <option value="ecu">ECU (제어기)</option>
+                        <option value="connector">CONNECTOR (커넥터)</option>
                     </select>
                 </div>
 
                 <div>
-                    <label id="lblNewEcuId" class="block text-slate-400 font-semibold mb-1.5 break-keep leading-snug">?�어�?ID (?�문 ?�어, ?? MCU2)</label>
-                    <input type="text" id="newEcuId" placeholder="?? MCU2" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-slate-500 transition-colors uppercase font-mono">
+                    <label id="lblNewEcuId" class="block text-slate-400 font-semibold mb-1.5 break-keep leading-snug">제어기 ID (영문 약어, 예: MCU2)</label>
+                    <input type="text" id="newEcuId" placeholder="예: MCU2" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-slate-500 transition-colors uppercase font-mono">
                 </div>
                 
                 <div>
-                    <label id="lblNewEcuName" class="block text-slate-400 font-semibold mb-1.5 break-keep leading-snug">?�어�?명칭 (�?�� ?�?�임)</label>
-                    <input type="text" id="newEcuName" placeholder="?? 구동모터?�어?�닛 2" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-slate-500 transition-colors break-keep">
+                    <label id="lblNewEcuName" class="block text-slate-400 font-semibold mb-1.5 break-keep leading-snug">제어기 명칭 (국문 풀네임)</label>
+                    <input type="text" id="newEcuName" placeholder="예: 구동모터제어유닛 2" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-slate-500 transition-colors break-keep">
                 </div>
                 
                 <div>
-                    <label id="lblNewEcuDesc" class="block text-slate-400 font-semibold mb-1.5 break-keep leading-snug">?�어�??�명 (?�문�?/ 코드)</label>
-                    <input type="text" id="newEcuDesc" placeholder="?? Motor Control Unit 2" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-slate-500 transition-colors">
+                    <label id="lblNewEcuDesc" class="block text-slate-400 font-semibold mb-1.5 break-keep leading-snug">제어기 설명 (영문명 / 코드)</label>
+                    <input type="text" id="newEcuDesc" placeholder="예: Motor Control Unit 2" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-slate-500 transition-colors">
                 </div>
                 
                 <div id="newEcuDomainWrapper">
-                    <label class="block text-slate-400 font-semibold mb-1.5 break-keep leading-snug">?�속 ?�메???�분류</label>
+                    <label class="block text-slate-400 font-semibold mb-1.5 break-keep leading-snug">소속 도메인 대분류</label>
                     <select id="newEcuDomain" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-slate-500 transition-colors">
-                        <option value="POWERTRAIN">POWERTRAIN (?�워?�레??/ PE)</option>
-                        <option value="CHASSIS">CHASSIS (?�???�어�?</option>
-                        <option value="BODY">BODY (바디 ?�의 기능)</option>
-                        <option value="INFOTAINMENT">INFOTAINMENT (?�포?�인먼트 Cockpit)</option>
-                        <option value="NETWORK">NETWORK (차량 ?�신 중앙 게이?�웨??</option>
+                        <option value="POWERTRAIN">POWERTRAIN (파워트레인 / PE)</option>
+                        <option value="CHASSIS">CHASSIS (섀시 제어계)</option>
+                        <option value="BODY">BODY (바디 편의 기능)</option>
+                        <option value="INFOTAINMENT">INFOTAINMENT (인포테인먼트 Cockpit)</option>
+                        <option value="NETWORK">NETWORK (차량 통신 중앙 게이트웨이)</option>
                     </select>
                 </div>
 
                 <div>
-                    <label class="block text-slate-400 font-semibold mb-2 break-keep leading-snug">?�트?�크 ?�신???�결 ?�택 (?�중 ?�택)</label>
+                    <label class="block text-slate-400 font-semibold mb-2 break-keep leading-snug">네트워크 통신선 연결 선택 (다중 선택)</label>
                     <div id="newEcuLinksContainer" class="grid grid-cols-2 gap-1.5 max-h-36 overflow-y-auto bg-slate-950 p-2.5 rounded-lg border border-slate-800 text-[11px]"></div>
                 </div>
             </div>
 
             <div class="mt-4 pt-3 border-t border-slate-850 flex space-x-2 text-xs font-semibold shrink-0">
-                <button onclick="submitNewEcu()" class="flex-1 py-2 rounded-full bg-appleBlue text-white hover:bg-opacity-90 transition">추�? ?�료</button>
+                <button onclick="submitNewEcu()" class="flex-1 py-2 rounded-full bg-appleBlue text-white hover:bg-opacity-90 transition">추가 완료</button>
                 <button onclick="closeAddEcuModal()" class="flex-1 py-2 rounded-full bg-slate-850 text-slate-300 hover:bg-slate-800 transition">취소</button>
             </div>
         </div>
@@ -587,70 +587,70 @@
     <div id="editEcuModal" class="fixed inset-0 bg-black/80 z-50 flex items-center justify-center hidden backdrop-blur-sm">
         <div class="bg-arPanel border border-arBorder p-6 rounded-2xl w-[92%] max-w-[400px] max-h-[85vh] flex flex-col shadow-2xl modal-animate-enter">
             <h3 class="text-sm font-bold text-white mb-4 tracking-wide pb-2 border-b border-slate-800 flex items-center justify-between">
-                <span class="flex items-center"><i class="fa-solid fa-pen-to-square text-appleLink mr-2"></i>?�드(ECU/커넥?? ?�보 ?�정</span>
+                <span class="flex items-center"><i class="fa-solid fa-pen-to-square text-appleLink mr-2"></i>노드(ECU/커넥터) 정보 수정</span>
                 <button onclick="closeEditEcuModal()" class="text-slate-500 hover:text-white text-lg transition">&times;</button>
             </h3>
             
             <div class="flex-1 overflow-y-auto space-y-3.5 pr-1 text-xs">
                 <div>
-                    <label class="block text-slate-400 font-semibold mb-1.5 break-keep leading-snug">?�드 ?�형</label>
+                    <label class="block text-slate-400 font-semibold mb-1.5 break-keep leading-snug">노드 유형</label>
                     <input type="text" id="editEcuType" disabled class="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-slate-500 font-semibold font-sans cursor-not-allowed select-none">
                 </div>
 
                 <div>
-                    <label id="lblEditEcuId" class="block text-slate-400 font-semibold mb-1.5 break-keep leading-snug">?�어�?ID (?�정 불�?)</label>
+                    <label id="lblEditEcuId" class="block text-slate-400 font-semibold mb-1.5 break-keep leading-snug">제어기 ID (수정 불가)</label>
                     <input type="text" id="editEcuId" disabled class="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-slate-500 font-mono cursor-not-allowed select-none">
                 </div>
                 
                 <div>
-                    <label id="lblEditEcuName" class="block text-slate-400 font-semibold mb-1.5 break-keep leading-snug">?�어�?명칭</label>
-                    <input type="text" id="editEcuName" placeholder="?? 구동모터?�어?�닛 2" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-slate-500 transition-colors break-keep">
+                    <label id="lblEditEcuName" class="block text-slate-400 font-semibold mb-1.5 break-keep leading-snug">제어기 명칭</label>
+                    <input type="text" id="editEcuName" placeholder="예: 구동모터제어유닛 2" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-slate-500 transition-colors break-keep">
                 </div>
                 
                 <div>
-                    <label id="lblEditEcuDesc" class="block text-slate-400 font-semibold mb-1.5 break-keep leading-snug">?�어�??�명</label>
-                    <input type="text" id="editEcuDesc" placeholder="?? Motor Control Unit 2" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-slate-500 transition-colors">
+                    <label id="lblEditEcuDesc" class="block text-slate-400 font-semibold mb-1.5 break-keep leading-snug">제어기 설명</label>
+                    <input type="text" id="editEcuDesc" placeholder="예: Motor Control Unit 2" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-slate-500 transition-colors">
                 </div>
                 
                 <div id="editEcuDomainWrapper">
-                    <label class="block text-slate-400 font-semibold mb-1.5 break-keep leading-snug">?�속 ?�메???�분류</label>
+                    <label class="block text-slate-400 font-semibold mb-1.5 break-keep leading-snug">소속 도메인 대분류</label>
                     <select id="editEcuDomain" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-slate-500 transition-colors">
-                        <option value="POWERTRAIN">POWERTRAIN (?�워?�레??/ PE)</option>
-                        <option value="CHASSIS">CHASSIS (?�???�어�?</option>
-                        <option value="BODY">BODY (바디 ?�의 기능)</option>
-                        <option value="INFOTAINMENT">INFOTAINMENT (?�포?�인먼트 Cockpit)</option>
-                        <option value="NETWORK">NETWORK (차량 ?�신 중앙 게이?�웨??</option>
+                        <option value="POWERTRAIN">POWERTRAIN (파워트레인 / PE)</option>
+                        <option value="CHASSIS">CHASSIS (섀시 제어계)</option>
+                        <option value="BODY">BODY (바디 편의 기능)</option>
+                        <option value="INFOTAINMENT">INFOTAINMENT (인포테인먼트 Cockpit)</option>
+                        <option value="NETWORK">NETWORK (차량 통신 중앙 게이트웨이)</option>
                     </select>
                 </div>
 
                 <div>
-                    <label class="block text-slate-400 font-semibold mb-2 break-keep leading-snug">?�트?�크 ?�신???�결 ?�택 (?�중 ?�택)</label>
+                    <label class="block text-slate-400 font-semibold mb-2 break-keep leading-snug">네트워크 통신선 연결 선택 (다중 선택)</label>
                     <div id="editEcuLinksContainer" class="grid grid-cols-2 gap-1.5 max-h-36 overflow-y-auto bg-slate-950 p-2.5 rounded-lg border border-slate-800 text-[11px]"></div>
                 </div>
             </div>
 
             <div class="mt-4 pt-3 border-t border-slate-850 flex space-x-2 text-xs font-semibold shrink-0">
-                <button onclick="submitEditEcu()" class="flex-1 py-2 rounded-full bg-appleBlue text-white hover:bg-opacity-90 transition">?�정 ?�료</button>
+                <button onclick="submitEditEcu()" class="flex-1 py-2 rounded-full bg-appleBlue text-white hover:bg-opacity-90 transition">수정 완료</button>
                 <button onclick="closeEditEcuModal()" class="flex-1 py-2 rounded-full bg-slate-850 text-slate-300 hover:bg-slate-800 transition">취소</button>
             </div>
         </div>
     </div>
 
-    <!-- 모던????�� ?�인 모달 -->
+    <!-- 모던한 삭제 확인 모달 -->
     <div id="deleteConfirmModal" class="fixed inset-0 bg-black/80 z-50 flex items-center justify-center hidden backdrop-blur-sm transition-opacity duration-300">
         <div class="bg-slate-900 border border-slate-700/80 rounded-2xl p-6 w-[85%] max-w-[320px] shadow-2xl relative modal-animate-enter flex flex-col items-center">
             <div class="w-12 h-12 rounded-full bg-rose-500/20 flex items-center justify-center border border-rose-500/30 mb-4">
                 <i class="fa-solid fa-trash-can text-rose-500 text-xl"></i>
             </div>
             
-            <h3 class="text-base font-bold text-white text-center mb-1.5" id="deleteConfirmTitle">?�어�???��</h3>
+            <h3 class="text-base font-bold text-white text-center mb-1.5" id="deleteConfirmTitle">제어기 삭제</h3>
             <p class="text-xs text-slate-400 text-center mb-5 break-keep leading-relaxed" id="deleteConfirmDesc">
-                ?�택???�드�???��?�시겠습?�까?
+                선택한 노드를 삭제하시겠습니까?
             </p>
             
             <div class="flex space-x-2.5 w-full">
                 <button onclick="closeDeleteConfirmModal()" class="flex-1 py-2 rounded-full bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white transition font-semibold text-xs">취소</button>
-                <button onclick="executeDeleteEcu()" class="flex-1 py-2 rounded-full bg-rose-600 text-white hover:bg-rose-500 shadow-lg shadow-rose-900/50 transition font-semibold text-xs">??��?�기</button>
+                <button onclick="executeDeleteEcu()" class="flex-1 py-2 rounded-full bg-rose-600 text-white hover:bg-rose-500 shadow-lg shadow-rose-900/50 transition font-semibold text-xs">삭제하기</button>
             </div>
         </div>
     </div>
@@ -659,13 +659,13 @@
         <div class="flex items-center justify-between pb-2 border-b border-slate-850 mb-2">
             <h4 id="dtcPopupTitle" class="text-[11px] font-bold text-white flex items-center space-x-1.5">
                 <i class="fa-solid fa-triangle-exclamation text-rose-500 animate-pulse text-[10px]"></i>
-                <span>?�어�?DTC 목록</span>
+                <span>제어기 DTC 목록</span>
             </h4>
             <button onclick="closeDtcManager()" class="text-slate-500 hover:text-white transition text-xs">&times;</button>
         </div>
         <ul id="dtcList" class="space-y-1.5 max-h-40 overflow-y-auto mb-3 text-xs pr-1"></ul>
         <div class="flex space-x-1.5 text-xs">
-            <input type="text" id="newDtcInput" placeholder="DTC 코드 (?? P0A80)" class="flex-1 bg-slate-900/40 border border-slate-800 rounded-lg px-2.5 py-1.5 text-white placeholder-slate-650 focus:outline-none focus:border-slate-500 transition-colors uppercase font-mono text-[10px]">
+            <input type="text" id="newDtcInput" placeholder="DTC 코드 (예: P0A80)" class="flex-1 bg-slate-900/40 border border-slate-800 rounded-lg px-2.5 py-1.5 text-white placeholder-slate-650 focus:outline-none focus:border-slate-500 transition-colors uppercase font-mono text-[10px]">
             <button id="addDtcBtn" class="bg-appleBlue hover:bg-opacity-90 text-white px-3 py-1.5 rounded-lg font-bold transition flex items-center justify-center">
                 <i class="fa-solid fa-plus text-xs"></i>
             </button>
@@ -677,17 +677,17 @@
             <div class="flex items-center justify-between pb-4 border-b border-slate-800/80">
                 <h3 class="text-base font-bold text-white flex items-center space-x-2 tracking-wide break-keep">
                     <i class="fa-solid fa-table-list text-appleLink"></i>
-                    <span>?�체 목록 (ECU List)</span>
+                    <span>전체 목록 (ECU List)</span>
                 </h3>
                 <div class="flex items-center space-x-3">
                     <input type="file" id="ecuCsvFileInput" accept=".csv" class="hidden" onchange="handleCsvUpload(this)">
                     <button onclick="triggerCsvExport()" class="px-3 py-1.5 rounded-full bg-slate-900 border border-slate-800 hover:border-slate-600 text-slate-350 hover:text-white text-xs transition flex items-center space-x-1.5 focus:outline-none mr-2">
                         <i class="fa-solid fa-file-export text-emerald-400"></i>
-                        <span class="text-xs font-semibold">?��? 추출</span>
+                        <span class="text-xs font-semibold">엑셀 추출</span>
                     </button>
                     <button onclick="triggerCsvUpload()" class="px-3 py-1.5 rounded-full bg-slate-900 border border-slate-800 hover:border-slate-600 text-slate-350 hover:text-white text-xs transition flex items-center space-x-1.5 focus:outline-none">
                         <i class="fa-solid fa-file-import text-appleLink"></i>
-                        <span class="text-xs font-semibold">?��? ?�로??/span>
+                        <span class="text-xs font-semibold">엑셀 업로드</span>
                     </button>
                     <button onclick="closeEcuTableModal()" class="text-slate-400 hover:text-white text-lg font-bold transition focus:outline-none">&times;</button>
                 </div>
@@ -696,7 +696,7 @@
             <div class="py-3">
                 <div class="relative">
                     <i class="fa-solid fa-magnifying-glass absolute left-3 top-2.5 text-xs text-slate-500"></i>
-                    <input type="text" id="modalTableSearch" oninput="filterModalTable()" placeholder="?�어�?ID, ?�메?? 명칭, DTC 고장코드 ?�시�??�터�?.." 
+                    <input type="text" id="modalTableSearch" oninput="filterModalTable()" placeholder="제어기 ID, 도메인, 명칭, DTC 고장코드 실시간 필터링..." 
                            class="w-full bg-slate-950 border border-slate-800 rounded-lg pl-9 pr-4 py-2 text-xs text-slate-200 placeholder-slate-650 focus:outline-none focus:border-slate-500 transition-all font-sans">
                 </div>
             </div>
@@ -706,10 +706,10 @@
                     <thead class="sticky top-0 bg-slate-950 text-slate-400 font-semibold border-b border-slate-800 z-10">
                         <tr class="break-keep">
                             <th class="p-3">ID</th>
-                            <th class="p-3">?�메??분류</th>
-                            <th class="p-3">?�어�?커넥??명칭</th>
-                            <th class="p-3">?�록??DTC</th>
-                            <th class="p-3">?�결 ?�드</th>
+                            <th class="p-3">도메인 분류</th>
+                            <th class="p-3">제어기/커넥터 명칭</th>
+                            <th class="p-3">등록된 DTC</th>
+                            <th class="p-3">연결 노드</th>
                         </tr>
                     </thead>
                     <tbody id="ecuTableModalBody" class="divide-y divide-slate-850 text-slate-300"></tbody>
@@ -718,7 +718,7 @@
         </div>
     </div>
 
-    <!-- ?��? ?��? ?�이??로드 (?�린 코드: ?�이?��? �?로직 분리) -->
+    <!-- 외부 더미 데이터 로드 (클린 코드: 데이터와 뷰 로직 분리) -->
     <script src="./ecu_mock_data.js"></script>
     <script>
         if (typeof AFRAME !== 'undefined') {
@@ -739,9 +739,9 @@
 
         /**
          * @function debounce
-         * @description 버튼 ?�속 ?�릭 방�?�??�한 ?�바?�스 ?�틸리티 (마�?�??�출�??�행)
-         * @param {Function} func - ?�행??콜백 ?�수
-         * @param {number} wait - ?��??�간(ms)
+         * @description 버튼 연속 클릭 방지를 위한 디바운스 유틸리티 (마지막 호출만 실행)
+         * @param {Function} func - 실행할 콜백 함수
+         * @param {number} wait - 대기 시간(ms)
          * @returns {Function}
          */
         function debounce(func, wait = 300) {
@@ -754,9 +754,9 @@
 
         /**
          * @function throttle
-         * @description 무분별한 ?�속 ?�릭 방�?�??�한 ?�로?� ?�틸리티 (?�정 주기마다 1번만 ?�행)
-         * @param {Function} func - ?�행??콜백 ?�수
-         * @param {number} limit - ?�한 ?�간(ms)
+         * @description 무분별한 연속 클릭 방지를 위한 쓰로틀 유틸리티 (일정 주기마다 1번만 실행)
+         * @param {Function} func - 실행할 콜백 함수
+         * @param {number} limit - 제한 시간(ms)
          * @returns {Function}
          */
         function throttle(func, limit = 500) {
@@ -898,8 +898,8 @@
             if (addDtcBtn && newDtcInput) {
                 const handleAddDtcAction = () => {
                     const code = newDtcInput.value.trim().toUpperCase();
-                    if (!code) { alert("DTC 코드�??�력??주세??"); return; }
-                    if (!/^[A-Z0-9]{4,6}$/.test(code)) { alert("?�바�?DTC 규격???�닙?�다. (?? P0A80, C1200)"); return; }
+                    if (!code) { alert("DTC 코드를 입력해 주세요."); return; }
+                    if (!/^[A-Z0-9]{4,6}$/.test(code)) { alert("올바른 DTC 규격이 아닙니다. (예: P0A80, C1200)"); return; }
                     addDtc(activeDtcNodeId, code);
                     newDtcInput.value = '';
                 };
@@ -1304,15 +1304,15 @@
             document.getElementById('detailEcuName').innerText = node.name;
             document.getElementById('detailEcuDesc').innerText = node.desc || '';
 
-            // ?�어�??��?지 ?�적 로딩 (?? BMS.jpg)
+            // 제어기 이미지 동적 로딩 (예: BMS.jpg)
             const detailEcuImage = document.getElementById('detailEcuImage');
             const hudFallback = document.getElementById('hudFallbackScanner');
             if (detailEcuImage && hudFallback) {
-                // ?�전??부?�된 hidden?�나 onload/onerror ?�래??초기??
+                // 이전에 부여된 hidden이나 onload/onerror 클래스 초기화
                 detailEcuImage.classList.add('hidden');
                 hudFallback.classList.remove('hidden');
                 
-                // ?�로??경로 ?�정 ?�도 (JPG?� PNG 지??
+                // 새로운 경로 설정 시도 (JPG와 PNG 지원)
                 detailEcuImage.src = `./car_image/${node.id}.jpg`;
             }
 
@@ -1335,7 +1335,7 @@
         function requestEditMode() {
             if (isEditMode) {
                 isEditMode = false;
-                document.getElementById('editBtnText').innerText = "?�치 ?�팅 (?�금)";
+                document.getElementById('editBtnText').innerText = "위치 세팅 (잠금)";
                 document.getElementById('editLockIcon').className = "fa-solid fa-lock";
                 savePositions(); 
             } else {
@@ -1356,9 +1356,9 @@
             if (passwordInputValue === CONFIG.ADMIN_PASSWORD) {
                 closePasswordModal();
                 isEditMode = true;
-                document.getElementById('editBtnText').innerText = "?�팅 �?(?�릭 ???�??";
+                document.getElementById('editBtnText').innerText = "세팅 중 (클릭 시 저장)";
                 document.getElementById('editLockIcon').className = "fa-solid fa-lock-open";
-                AndroidHelper.showToast("?�치 ?�팅 모드가 ?�성?�되?�습?�다. ?�드�??�치/?�래그하???�동?�세??");
+                AndroidHelper.showToast("위치 세팅 모드가 활성화되었습니다. 노드를 터치/드래그하여 이동하세요.");
             } else {
                 document.getElementById('pwError').classList.remove('hidden');
             }
@@ -1419,7 +1419,7 @@
             try {
                 AndroidHelper.saveData(ecuData);
                 if (!silent) {
-                    AndroidHelper.showToast("?�정???�어�??�보 �??�치가 ?�?�되?�습?�다.");
+                    AndroidHelper.showToast("수정된 제어기 정보 및 위치가 저장되었습니다.");
                 }
             } catch (error) { console.error(error); }
         }
@@ -1439,7 +1439,7 @@
         }
 
         function resetPositions() {
-            if(confirm("모든 ?�어�??�치?� ?�정??초기?�하?�겠?�니�?")) {
+            if(confirm("모든 제어기 위치와 설정을 초기화하시겠습니까?")) {
                 localStorage.removeItem('ar_ecu_positions_v2');
                 if (AndroidHelper.isAndroid) {
                     try { AndroidBridge.saveData(""); } catch(e){}
@@ -1452,8 +1452,8 @@
         }
 
         const triggerCsvExport = throttle(function() {
-            // ?��??�서 UTF-8 ?�코?�을 ?�상?�으�??�식?�도�?BOM(\uFEFF)??�??�에 추�??�니??
-            let csvStr = "\uFEFFID,?�어기명,?�메??TopX,TopY,SideX,SideY,FrontX,FrontY,?�결?�드,DTC코드\n";
+            // 엑셀에서 UTF-8 인코딩을 정상적으로 인식하도록 BOM(\uFEFF)을 맨 앞에 추가합니다.
+            let csvStr = "\uFEFFID,제어기명,도메인,TopX,TopY,SideX,SideY,FrontX,FrontY,연결노드,DTC코드\n";
             ecuData.forEach(node => {
                 const links = (node.links || []).join("|");
                 const dtcs = (node.dtcs || []).join("|");
@@ -1513,7 +1513,7 @@
         function handleCsvTextParse(text) {
             const rows = text.split(/\r?\n/);
             if (rows.length <= 1) {
-                AndroidHelper.showToast("CSV ?�일???�효???�이?��? ?�습?�다.");
+                AndroidHelper.showToast("CSV 파일에 유효한 데이터가 없습니다.");
                 return;
             }
 
@@ -1581,7 +1581,7 @@
                 updateHeaderNodeCount();
                 renderEcuList();
                 renderEcuPins();
-                AndroidHelper.showToast(`CSV ?�동 ?�료! 추�?: ${addedCount}�? 갱신: ${updatedCount}�?);
+                AndroidHelper.showToast(`CSV 연동 완료! 추가: ${addedCount}건, 갱신: ${updatedCount}건`);
             }
         }
 
@@ -1601,7 +1601,7 @@
         const submitNewEcu = throttle(function() {
             const id = document.getElementById('newEcuId').value.trim().toUpperCase();
             const name = document.getElementById('newEcuName').value.trim();
-            if (!id || !name) { AndroidHelper.showToast("ID?� 명칭???�력??주세??"); return; }
+            if (!id || !name) { AndroidHelper.showToast("ID와 명칭을 입력해 주세요."); return; }
 
             const domain = document.getElementById('newEcuDomain').value;
             const type = (domain === 'CONNECTOR' || id.startsWith('CON_')) ? 'connector' : 'ecu';
@@ -1615,19 +1615,19 @@
             renderEcuList();
             renderEcuPins();
             closeAddEcuModal();
-            AndroidHelper.showToast("???�드가 추�??�었?�니??");
+            AndroidHelper.showToast("새 노드가 추가되었습니다.");
         }, 500);
 
         function openEditEcuModal() {
             if (!selectedEcuId) {
-                AndroidHelper.showToast("?�정???�드�?먼�? ?�택?�주?�요.");
+                AndroidHelper.showToast("수정할 노드를 먼저 선택해주세요.");
                 return;
             }
             const node = ecuData.find(n => n.id === selectedEcuId);
             if (!node) return;
 
             document.getElementById('editEcuId').value = node.id;
-            document.getElementById('editEcuType').value = node.type === 'connector' ? '커넥??(Connector)' : '?�어�?(ECU)';
+            document.getElementById('editEcuType').value = node.type === 'connector' ? '커넥터 (Connector)' : '제어기 (ECU)';
             document.getElementById('editEcuName').value = node.name || '';
             document.getElementById('editEcuDesc').value = node.desc || '';
             document.getElementById('editEcuDomain').value = node.domain;
@@ -1670,15 +1670,15 @@
             
             // Re-render detail panel with new data
             selectECU(selectedEcuId);
-            AndroidHelper.showToast("?�드 ?�보가 ?�공?�으�??�정?�었?�니??");
+            AndroidHelper.showToast("노드 정보가 성공적으로 수정되었습니다.");
         }, 500);
 
         function deleteSelectedEcu() {
             if (!selectedEcuId) {
-                AndroidHelper.showToast("??��???�드�?먼�? ?�택?�주?�요.");
+                AndroidHelper.showToast("삭제할 노드를 먼저 선택해주세요.");
                 return;
             }
-            document.getElementById('deleteConfirmDesc').innerHTML = `<span class="text-white font-bold">'${selectedEcuId}'</span> ?�드�??�말 ??��?�시겠습?�까?`;
+            document.getElementById('deleteConfirmDesc').innerHTML = `<span class="text-white font-bold">'${selectedEcuId}'</span> 노드를 정말 삭제하시겠습니까?`;
             document.getElementById('deleteConfirmModal').classList.remove('hidden');
         }
 
@@ -1701,7 +1701,7 @@
             document.getElementById('detailPanelContent').classList.add('hidden');
             document.getElementById('detailPanelEmpty').classList.remove('hidden');
             closeDeleteConfirmModal();
-            AndroidHelper.showToast("?�드가 ?�공?�으�???��?�었?�니??");
+            AndroidHelper.showToast("노드가 성공적으로 삭제되었습니다.");
         }, 500);
 
 
@@ -1723,7 +1723,7 @@
             listWrap.innerHTML = '';
             
             if (!node.dtcs || node.dtcs.length === 0) {
-                listWrap.innerHTML = '<li class="text-slate-500 text-center py-2 italic text-[10px]">?�록??DTC ?�음</li>';
+                listWrap.innerHTML = '<li class="text-slate-500 text-center py-2 italic text-[10px]">등록된 DTC 없음</li>';
                 return;
             }
             
@@ -1771,7 +1771,7 @@
                 const carImages = document.querySelectorAll('#svgTopView img, #svgSideView img, #svgFrontView img');
                 const arContainer = document.getElementById('arSceneContainer');
                 
-                arText.innerText = "AR ?�캔 �?;
+                arText.innerText = "AR 스캔 중";
                 document.documentElement.style.backgroundColor = 'transparent';
                 document.body.style.backgroundColor = 'transparent';
                 if (arContainer) {
@@ -1789,22 +1789,22 @@
                 renderEcuPins();
             } else {
                 isArMode = false;
-                AndroidHelper.showToast("카메??권한???�어 AR 모드�??�행?????�습?�다.");
+                AndroidHelper.showToast("카메라 권한이 없어 AR 모드를 실행할 수 없습니다.");
             }
         };
 
         function toggleArMode() {
             if (!isArMode) {
-                // 켜는 ?�작????권한 먼�? ?�청
+                // 켜는 동작일 때 권한 먼저 요청
                 isArMode = true;
                 if (window.AndroidBridge && window.AndroidBridge.requestCameraPermission) {
                     window.AndroidBridge.requestCameraPermission();
                 } else {
-                    // 브릿지가 ?�으�?바로 ?�공?�로 간주(?�스?�용)
+                    // 브릿지가 없으면 바로 성공으로 간주(테스트용)
                     window.onCameraPermissionResult(true);
                 }
             } else {
-                // ?�는 ?�작
+                // 끄는 동작
                 isArMode = false;
                 const arText = document.getElementById('arModeBtnText');
                 const carImages = document.querySelectorAll('#svgTopView img, #svgSideView img, #svgFrontView img');
@@ -1829,7 +1829,7 @@
 
         function triggerArScanning() {
             const statusTxt = document.getElementById('arStatusText');
-            if (statusTxt) statusTxt.innerText = "AR ?�식 ?�료";
+            if (statusTxt) statusTxt.innerText = "AR 인식 완료";
             isArAligned = true;
             renderEcuPins();
         }
