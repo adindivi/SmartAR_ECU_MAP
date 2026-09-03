@@ -1346,14 +1346,10 @@
                 item.className = `p-2 rounded-lg cursor-pointer text-xs flex items-center justify-between border transition ${isSelected ? 'bg-slate-800 border-slate-700 text-white shadow-xl' : 'bg-slate-900/40 border-transparent text-slate-400 hover:bg-slate-800/80'}`;
                 item.onclick = () => selectECU(node.id);
                 
-                const hasDtc = node.dtcs && node.dtcs.length > 0;
-                const dtcBadge = hasDtc ? `<span class="bg-rose-500/20 text-rose-400 border border-rose-500/50 px-1.5 py-0.5 rounded text-[9px] font-bold flex items-center space-x-1 shrink-0"><i class="fa-solid fa-triangle-exclamation text-[8px]"></i><span>${node.dtcs.length}</span></span>` : '';
-                
                 item.innerHTML = `
                     <div class="flex items-center space-x-2 w-full">
                         <span class="font-mono font-bold w-[76px] shrink-0 text-appleLink">${node.id}</span>
-                        <span class="flex-1 text-[11px] leading-snug break-keep text-left truncate">${node.name}</span>
-                        ${dtcBadge}
+                        <span class="flex-1 text-[11px] leading-snug break-keep text-left break-words whitespace-normal">${node.name}</span>
                     </div>
                 `;
                 list.appendChild(item);
