@@ -920,12 +920,7 @@
             },
 
             showToast: function(message) {
-                if (this.isAndroid) {
-                    try {
-                        AndroidBridge.showToast(message);
-                        return;
-                    } catch (e) {}
-                }
+                // 네이티브 Toast의 지연 현상 방지를 위해 무조건 HTML 커스텀 Toast 사용
                 showHtmlToast(message);
             }
         };
@@ -1927,8 +1922,24 @@
             }
         }
 
+        let htmlToastTimer = null;
         function showHtmlToast(msg) {
-            alert(msg);
+            let toastEl = document.getElementById('customHtmlToast');
+            if (!toastEl) {
+                toastEl = document.createElement('div');
+                toastEl.id = 'customHtmlToast';
+                toastEl.className = 'fixed bottom-10 left-1/2 transform -translate-x-1/2 bg-slate-800/95 backdrop-blur text-white px-5 py-2.5 rounded-full shadow-2xl z-[100] text-xs font-bold transition-all duration-200 opacity-0 pointer-events-none border border-slate-600/50 whitespace-nowrap text-center';
+                document.body.appendChild(toastEl);
+            }
+            toastEl.innerText = msg;
+            toastEl.style.opacity = '1';
+            toastEl.style.transform = 'translate(-50%, 0) scale(1)';
+            
+            if (htmlToastTimer) clearTimeout(htmlToastTimer);
+            htmlToastTimer = setTimeout(() => {
+                toastEl.style.opacity = '0';
+                toastEl.style.transform = 'translate(-50%, 10px) scale(0.95)';
+            }, 1800);
         }
 
         window.addEventListener('resize', () => {
