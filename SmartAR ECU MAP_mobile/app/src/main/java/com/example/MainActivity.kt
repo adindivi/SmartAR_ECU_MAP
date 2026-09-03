@@ -196,15 +196,9 @@ class MainActivity : ComponentActivity() {
             return prefs.getString(KEY_ECU_DATA, "") ?: ""
         }
 
-        @JavascriptInterface
-        fun onNodeSelected(nodeId: String) {
-            // 특정 노드 선택 시 네이티브 로깅 또는 커스텀 처리
-        }
 
-        @JavascriptInterface
-        fun onDtcChanged(nodeId: String, jsonStr: String) {
-            // DTC 고장 코드 변경 시 네이티브 처리
-        }
+
+
 
         @JavascriptInterface
         fun vibrate(ms: Long) {
@@ -239,16 +233,7 @@ class MainActivity : ComponentActivity() {
             }
         }
 
-        private var currentToast: Toast? = null
 
-        @JavascriptInterface
-        fun showToast(message: String) {
-            runOnUiThread {
-                currentToast?.cancel()
-                currentToast = Toast.makeText(this@MainActivity, message, Toast.LENGTH_SHORT)
-                currentToast?.show()
-            }
-        }
 
         @JavascriptInterface
         fun triggerCsvPicker() {

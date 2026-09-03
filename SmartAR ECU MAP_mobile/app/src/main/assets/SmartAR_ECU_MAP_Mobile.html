@@ -892,19 +892,6 @@
                 return saved ? JSON.parse(saved) : null;
             },
 
-            onNodeSelected: function(nodeId) {
-                if (this.isAndroid) {
-                    try { AndroidBridge.onNodeSelected(nodeId); } catch (e) {}
-                }
-            },
-
-            onDtcChanged: function(nodeId, dtcs) {
-                const jsonStr = JSON.stringify(dtcs);
-                if (this.isAndroid) {
-                    try { AndroidBridge.onDtcChanged(nodeId, jsonStr); } catch (e) {}
-                }
-            },
-
             vibrate: function(ms = 50) {
                 if (this.isAndroid) {
                     try { AndroidBridge.vibrate(ms); } catch (e) {}
@@ -1383,8 +1370,6 @@
                     linksContainer.appendChild(linkButton);
                 });
             }
-
-            AndroidHelper.onNodeSelected(nodeId);
             AndroidHelper.vibrate(20);
         }
 
@@ -1807,7 +1792,6 @@
             if (!node.dtcs.includes(code)) {
                 node.dtcs.push(code);
                 savePositions(true);
-                AndroidHelper.onDtcChanged(nodeId, node.dtcs);
                 renderDtcList(nodeId);
                 renderEcuList();
                 renderEcuPins();
@@ -1818,7 +1802,6 @@
             const node = ecuData.find(n => n.id === nodeId);
             node.dtcs.splice(index, 1);
             savePositions(true);
-            AndroidHelper.onDtcChanged(nodeId, node.dtcs);
             renderDtcList(nodeId);
             renderEcuList();
             renderEcuPins();
