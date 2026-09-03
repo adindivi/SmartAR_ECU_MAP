@@ -98,13 +98,7 @@ fun WebViewContainer(
                         val assetPath = url.replace("https://appassets.androidplatform.net/assets/", "")
                         try {
                             val inputStream = context.assets.open(assetPath)
-                            var mimeType = "text/html"
-                            if (assetPath.endsWith(".mind")) mimeType = "application/octet-stream"
-                            else if (assetPath.endsWith(".png")) mimeType = "image/png"
-                            else if (assetPath.endsWith(".jpg") || assetPath.endsWith(".jpeg")) mimeType = "image/jpeg"
-                            else if (assetPath.endsWith(".js")) mimeType = "application/javascript"
-                            else if (assetPath.endsWith(".css")) mimeType = "text/css"
-                            
+                            val mimeType = assetPath.getMimeTypeForAsset()
                             val response = android.webkit.WebResourceResponse(mimeType, "UTF-8", inputStream)
                             response.responseHeaders = mutableMapOf(
                                 "Access-Control-Allow-Origin" to "*"
@@ -159,4 +153,22 @@ fun WebViewContainer(
         factory = { webView },
         modifier = modifier.fillMaxSize()
     )
+}
+
+
+/**
+ * [Clean Code Refactoring - SRP]
+ * 확장자를 기반으로 안전하게 MimeType을 반환하는 확장 함수입니다.
+ * 하드코딩된 if-else 체인을 대체하여 유지보수성을 극대화합니다.
+ */
+private fun String.getMimeTypeForAsset(): String = when {
+    endsWith(".mind", ignoreCase = true) -> "application/octet-stream"
+    endsWith(".html", ignoreCase = true) -> "text/html"
+    endsWith(".js", ignoreCase = true) -> "application/javascript"
+    endsWith(".css", ignoreCase = true) -> "text/css"
+    endsWith(".png", ignoreCase = true) -> "image/png"
+    endsWith(".jpg", ignoreCase = true) || endsWith(".jpeg", ignoreCase = true) -> "image/jpeg"
+    endsWith(".csv", ignoreCase = true) -> "text/csv"
+    endsWith(".json", ignoreCase = true) -> "application/json"
+    else -> "text/plain"
 }
