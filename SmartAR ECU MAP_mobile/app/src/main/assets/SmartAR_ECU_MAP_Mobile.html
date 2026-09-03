@@ -942,37 +942,9 @@
         }
 
         function syncSharedAxes(node, view, x, y) {
-            if (!node || !node.coords) return;
-            const B = VEHICLE_BOUNDS;
-
-            if (view === 'side') {
-                // Side X (전후 길이) -> Top X (전후 길이)
-                if (node.coords['top']) {
-                    node.coords['top'].x = mapRange(x, B.side.xMin, B.side.xMax, B.top.xMin, B.top.xMax);
-                }
-                // Side Y (상하 높이) -> Front Y (상하 높이)
-                if (node.coords['front']) {
-                    node.coords['front'].y = mapRange(y, B.side.yMin, B.side.yMax, B.front.yMin, B.front.yMax);
-                }
-            } else if (view === 'top') {
-                // Top X (전후 길이) -> Side X (전후 길이)
-                if (node.coords['side']) {
-                    node.coords['side'].x = mapRange(x, B.top.xMin, B.top.xMax, B.side.xMin, B.side.xMax);
-                }
-                // Top Y (좌우 폭) -> Front X (좌우 폭)
-                if (node.coords['front']) {
-                    node.coords['front'].x = mapRange(y, B.top.yMin, B.top.yMax, B.front.xMin, B.front.xMax);
-                }
-            } else if (view === 'front') {
-                // Front X (좌우 폭) -> Top Y (좌우 폭)
-                if (node.coords['top']) {
-                    node.coords['top'].y = mapRange(x, B.front.xMin, B.front.xMax, B.top.yMin, B.top.yMax);
-                }
-                // Front Y (상하 높이) -> Side Y (상하 높이)
-                if (node.coords['side']) {
-                    node.coords['side'].y = mapRange(y, B.front.yMin, B.front.yMax, B.side.yMin, B.side.yMax);
-                }
-            }
+            // 연동(동기화) 로직 완전 제거
+            // 사용자가 각 뷰(Top, Side, Front)에서 노드의 위치를 독립적으로 배치할 수 있도록 함
+            return;
         }
 
         window.onload = () => {
