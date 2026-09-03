@@ -105,9 +105,19 @@ class MainActivity : ComponentActivity() {
         uri?.let { fileUri ->
             try {
                 contentResolver.openInputStream(fileUri)?.use { inputStream ->
-                    val reader = BufferedReader(InputStreamReader(inputStream, "UTF-8"))
-                    val csvContent = reader.readText()
-                    // Escape string for JavaScript function evaluation
+                    val bytes = inputStream.readBytes()
+                    // 1차 시도: 표준 UTF-8로 디코딩
+                    var csvContent = String(bytes, Charsets.UTF_8)
+                    
+                    // UTF-8 디코딩 실패 시 생성되는 대체 문자(�)가 포함되어 있다면, 
+                    // 윈도우 엑셀 구형 방식인 EUC-KR(CP949)로 재해석 시도 (현장 한글 깨짐 방어막)
+                    if (csvContent.contains("�")) {
+                        try {
+                            csvContent = String(bytes, java.nio.charset.Charset.forName("EUC-KR"))
+                        } catch(ignored: Exception) {}
+                    }
+
+                    // JavaScript 주입을 위한 문자열 이스케이프
                     val escapedCsv = csvContent
                         .replace("\\", "\\\\")
                         .replace("`", "\\`")

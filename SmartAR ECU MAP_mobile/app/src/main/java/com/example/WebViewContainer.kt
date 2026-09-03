@@ -20,6 +20,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.compose.ui.platform.LocalLifecycleOwner
 
 /**
  * Composable that hosts a WebView rendering the local SmartAR_ECU_MAP_Mobile.html asset.
@@ -134,8 +137,19 @@ fun WebViewContainer(
         }
     }
 
-    DisposableEffect(webView) {
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner, webView) {
+        val observer = LifecycleEventObserver { _, event ->
+            when (event) {
+                Lifecycle.Event.ON_PAUSE -> webView.onPause()
+                Lifecycle.Event.ON_RESUME -> webView.onResume()
+                else -> {}
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        
         onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
             webView.stopLoading()
             webView.destroy()
         }
