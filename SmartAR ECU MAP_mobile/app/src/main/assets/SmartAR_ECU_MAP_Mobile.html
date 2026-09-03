@@ -660,9 +660,9 @@
             <button onclick="closeDtcManager()" class="text-slate-500 hover:text-white transition text-xs">&times;</button>
         </div>
         <ul id="dtcList" class="space-y-1.5 max-h-40 overflow-y-auto mb-3 text-xs pr-1"></ul>
-        <div class="flex space-x-1.5 text-xs">
-            <input type="text" id="newDtcInput" placeholder="DTC 코드 (예: P0A80)" class="flex-1 bg-slate-900/40 border border-slate-800 rounded-lg px-2.5 py-1.5 text-white placeholder-slate-650 focus:outline-none focus:border-slate-500 transition-colors uppercase font-mono text-[10px]">
-            <button id="addDtcBtn" class="bg-appleBlue hover:bg-opacity-90 text-white px-3 py-1.5 rounded-lg font-bold transition flex items-center justify-center">
+        <div class="flex space-x-1.5 text-xs w-full">
+            <input type="text" id="newDtcInput" placeholder="DTC 코드 (예: P0A80)" class="flex-1 min-w-0 bg-slate-900/40 border border-slate-800 rounded-lg px-2.5 py-1.5 text-white placeholder-slate-650 focus:outline-none focus:border-slate-500 transition-colors uppercase font-mono text-[10px]">
+            <button id="addDtcBtn" class="shrink-0 bg-appleBlue hover:bg-opacity-90 text-white px-3 py-1.5 rounded-lg font-bold transition flex items-center justify-center">
                 <i class="fa-solid fa-plus text-xs"></i>
             </button>
         </div>
@@ -946,16 +946,32 @@
             const B = VEHICLE_BOUNDS;
 
             if (view === 'side') {
-                const zVal = mapRange(y, B.side.yMin, B.side.yMax, B.top.yMax, B.top.yMin);
-                if (node.coords['top']) node.coords['top'].y = zVal;
-                if (node.coords['front']) node.coords['front'].x = x;
+                // Side X (전후 길이) -> Top X (전후 길이)
+                if (node.coords['top']) {
+                    node.coords['top'].x = mapRange(x, B.side.xMin, B.side.xMax, B.top.xMin, B.top.xMax);
+                }
+                // Side Y (상하 높이) -> Front Y (상하 높이)
+                if (node.coords['front']) {
+                    node.coords['front'].y = mapRange(y, B.side.yMin, B.side.yMax, B.front.yMin, B.front.yMax);
+                }
             } else if (view === 'top') {
-                const zVal = mapRange(y, B.top.yMin, B.top.yMax, B.side.yMax, B.side.yMin);
-                if (node.coords['side']) node.coords['side'].y = zVal;
-                if (node.coords['front']) node.coords['front'].x = x;
+                // Top X (전후 길이) -> Side X (전후 길이)
+                if (node.coords['side']) {
+                    node.coords['side'].x = mapRange(x, B.top.xMin, B.top.xMax, B.side.xMin, B.side.xMax);
+                }
+                // Top Y (좌우 폭) -> Front X (좌우 폭)
+                if (node.coords['front']) {
+                    node.coords['front'].x = mapRange(y, B.top.yMin, B.top.yMax, B.front.xMin, B.front.xMax);
+                }
             } else if (view === 'front') {
-                if (node.coords['top']) node.coords['top'].x = x;
-                if (node.coords['side']) node.coords['side'].x = x;
+                // Front X (좌우 폭) -> Top Y (좌우 폭)
+                if (node.coords['top']) {
+                    node.coords['top'].y = mapRange(x, B.front.xMin, B.front.xMax, B.top.yMin, B.top.yMax);
+                }
+                // Front Y (상하 높이) -> Side Y (상하 높이)
+                if (node.coords['side']) {
+                    node.coords['side'].y = mapRange(y, B.front.yMin, B.front.yMax, B.side.yMin, B.side.yMax);
+                }
             }
         }
 
