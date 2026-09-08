@@ -2,6 +2,7 @@ package com.example
 
 import android.annotation.SuppressLint
 import android.content.Context
+import android.graphics.Bitmap
 import android.graphics.Color
 import android.net.http.SslError
 import android.view.ViewGroup
@@ -85,6 +86,11 @@ fun WebViewContainer(
                             }
                         }
                     }
+                }
+
+                // 기본 검은 타원/삼각형 비디오 포스터 대신 1x1 투명 비트맵 반환
+                override fun getDefaultVideoPoster(): Bitmap? {
+                    return Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888)
                 }
             }
 

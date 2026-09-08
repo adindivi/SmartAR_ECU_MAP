@@ -353,7 +353,7 @@
 
         <main class="flex-1 relative bg-transparent flex items-center justify-center overflow-hidden">
             <div id="arSceneContainer" class="absolute inset-0 w-full h-full z-0 opacity-0 pointer-events-none transition-opacity duration-300">
-                <a-scene id="arScene" mindar-image="imageTargetSrc: ./car_image/targets.mind; autoStart: true; uiLoading: no; uiScanning: no; uiError: no; filterMinCF: 0.0001; filterBeta: 0.0001;" 
+                <a-scene id="arScene" mindar-image="imageTargetSrc: ./car_image/targets.mind; autoStart: false; uiLoading: no; uiScanning: no; uiError: no; filterMinCF: 0.0001; filterBeta: 0.0001;" 
                          embedded vr-mode-ui="enabled: false" device-orientation-permission-ui="enabled: false"
                          style="width: 100%; height: 100%; position: absolute;">
                     <a-camera id="arCamera" position="0 0 0" look-controls="enabled: false"></a-camera>
@@ -1858,6 +1858,38 @@
             document.getElementById('dtcManagerPopup').classList.add('hidden');
         }
 
+        function startArEngine() {
+            try {
+                const sceneEl = document.querySelector('#arScene');
+                if (sceneEl) {
+                    const startSystem = () => {
+                        const arSystem = sceneEl.systems && sceneEl.systems['mindar-image-system'];
+                        if (arSystem) {
+                            arSystem.start();
+                        }
+                    };
+                    if (sceneEl.hasLoaded) {
+                        startSystem();
+                    } else {
+                        sceneEl.addEventListener('loaded', startSystem, { once: true });
+                    }
+                }
+            } catch (e) {
+                console.error("MindAR start error:", e);
+            }
+        }
+
+        function stopArEngine() {
+            try {
+                const sceneEl = document.querySelector('#arScene');
+                if (sceneEl && sceneEl.systems && sceneEl.systems['mindar-image-system']) {
+                    sceneEl.systems['mindar-image-system'].stop();
+                }
+            } catch (e) {
+                console.error("MindAR stop error:", e);
+            }
+        }
+
         window.onCameraPermissionResult = function(isGranted) {
             if (isGranted) {
                 const arText = document.getElementById('arModeBtnText');
@@ -1878,10 +1910,12 @@
                 });
                 
                 AndroidHelper.setLandscapeLock(true);
+                startArEngine();
                 triggerArScanning();
                 renderEcuPins();
             } else {
                 isArMode = false;
+                stopArEngine();
                 AndroidHelper.showToast("카메라 권한이 없어 AR 모드를 실행할 수 없습니다.");
             }
         };
@@ -1899,6 +1933,7 @@
             } else {
                 // 끄는 동작
                 isArMode = false;
+                stopArEngine();
                 const arText = document.getElementById('arModeBtnText');
                 const carImages = document.querySelectorAll('#svgTopView img, #svgSideView img, #svgFrontView img');
                 const arContainer = document.getElementById('arSceneContainer');
